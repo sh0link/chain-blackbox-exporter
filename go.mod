@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
 	github.com/andybalholm/brotli v1.2.0
 	github.com/google/cel-go v0.26.1
+	github.com/jmespath/go-jmespath v0.4.0
 	github.com/miekg/dns v1.1.68
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2

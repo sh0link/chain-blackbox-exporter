@@ -50,10 +50,17 @@ var (
 		Unix: DefaultUnixProbe,
 	}
 
+	// defaultHTTPClientConfig is based on prometheus common defaults with proxy_from_environment enabled (http_proxy/https_proxy/no_proxy)
+	defaultHTTPClientConfig = func() config.HTTPClientConfig {
+		c := config.DefaultHTTPClientConfig
+		c.ProxyFromEnvironment = true
+		return c
+	}()
+
 	// DefaultHTTPProbe set default value for HTTPProbe
 	DefaultHTTPProbe = HTTPProbe{
 		IPProtocolFallback: true,
-		HTTPClientConfig:   config.DefaultHTTPClientConfig,
+		HTTPClientConfig:   defaultHTTPClientConfig,
 	}
 
 	// DefaultGRPCProbe set default value for HTTPProbe

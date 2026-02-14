@@ -238,6 +238,17 @@ scrape_configs:
         target_label: vhost  # and store it in 'vhost' label
 ```
 
+Start a prometheus or victoria-metrics server
+
+```bash
+
+prometheus --config.file=./prometheus.yml --storage.tsdb.path=/tmp/data --web.listen-address=:19090
+
+victoria-metrics --promscrape.config=./prometheus.yml --storageDataPath=/tmp/data --httpListenAddr=:19090 -promscrape.dropOriginalLabels=false
+
+open localhost:19090
+```
+
 ## Permissions
 
 The ICMP probe requires elevated privileges to function:
