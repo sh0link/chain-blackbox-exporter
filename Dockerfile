@@ -1,7 +1,8 @@
 # Multi-stage: build in container. Used by make docker and goreleaser (buildx multi-arch).
-FROM golang:1.24-alpine AS builder
+# Use Debian-based image: Alpine arm64 often hits "exec format error" under QEMU on amd64 CI.
+FROM golang:1.24-bookworm AS builder
 WORKDIR /src
-RUN apk add --no-cache ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
