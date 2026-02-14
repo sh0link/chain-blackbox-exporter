@@ -16,7 +16,6 @@ package prober
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,50 +23,15 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/sha3"
 )
 
-const (
-	// ethrpcKeepAlive is the idle connection keepalive time for RPC HTTP client (>= 2 min).
-	ethrpcKeepAlive = 130 * time.Second
-)
-
-var (
-	ethrpcClient     *http.Client
-	ethrpcClientOnce sync.Once
-)
-
-// envEthrpcInsecureSkipVerify: when set to "1", "true", or "yes", the ethrpc HTTP client
-// skips TLS certificate verification (e.g. when behind a proxy that does TLS inspection).
-const envEthrpcInsecureSkipVerify = "BLACKBOX_ETHRPC_INSECURE_SKIP_VERIFY"
-
-func getEthrpcClient() *http.Client {
-	ethrpcClientOnce.Do(func() {
-		transport := &http.Transport{
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       ethrpcKeepAlive,
-			DisableKeepAlives:     false,
-			ResponseHeaderTimeout: 30 * time.Second,
-		}
-		if v := strings.ToLower(strings.TrimSpace(os.Getenv(envEthrpcInsecureSkipVerify))); v == "1" || v == "true" || v == "yes" {
-			transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		}
-		ethrpcClient = &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
-		}
-	})
-	return ethrpcClient
-}
+// getEthrpcClient 由 rpcclient.go 提供，统一走 http_proxy/https_proxy 与超时配置。
 
 // jsonrpcReq is a single JSON-RPC 2.0 request.
 type jsonrpcReq struct {

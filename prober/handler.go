@@ -45,6 +45,8 @@ var (
 		"balance":       ProbeBalance,
 		"erc20balance":  ProbeErc20Balance,
 		"contract_call": ProbeContractCall,
+		"jsonrpc":       ProbeJsonrpc,
+		"http_json":    ProbeHttpJson,
 	}
 )
 

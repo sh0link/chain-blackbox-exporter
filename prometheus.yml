@@ -88,3 +88,121 @@ scrape_configs:
       target_label: instance
     - target_label: __address__
       replacement: 127.0.0.1:9115
+
+# 通用 JSON-RPC：异构链区块高度 (params: method, rpcParams JSON, resultJMESPath, decimal)
+- job_name: jsonrpc-eth-height
+  metrics_path: /probe
+  params:
+    module: [ jsonrpc ]
+    method: [ eth_blockNumber ]
+    rpcParams: [ '[]' ]
+    resultJMESPath: [ '@' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://eth.drpc.org
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
+
+# BTC: 需使用支持 getblockcount 的 Bitcoin Core RPC（如自建节点或 RPC 服务）
+- job_name: jsonrpc-btc-height
+  metrics_path: /probe
+  params:
+    module: [ jsonrpc ]
+    method: [ getblockcount ]
+    rpcParams: [ '[]' ]
+    resultJMESPath: [ '@' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://bitcoin-rpc.publicnode.com
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
+
+# 示例：resultJMESPath 取 JSON 子节点。getblockchaininfo 返回对象，用 "blocks" 取当前区块高度
+- job_name: jsonrpc-btc-blocks-jmespath
+  metrics_path: /probe
+  params:
+    module: [ jsonrpc ]
+    method: [ getblockchaininfo ]
+    rpcParams: [ '[]' ]
+    resultJMESPath: [ 'blocks' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://bitcoin-rpc.publicnode.com
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
+
+- job_name: jsonrpc-solana-height
+  metrics_path: /probe
+  params:
+    module: [ jsonrpc ]
+    method: [ getBlockHeight ]
+    rpcParams: [ '[]' ]
+    # rpcParams: [ '[{"commitment":"finalized"}]' ]
+    resultJMESPath: [ '@' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://api.mainnet-beta.solana.com
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
+
+- job_name: jsonrpc-sui-height
+  metrics_path: /probe
+  params:
+    module: [ jsonrpc ]
+    method: [ sui_getLatestCheckpointSequenceNumber ]
+    rpcParams: [ '[]' ]
+    resultJMESPath: [ '@' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://fullnode.mainnet.sui.io
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
+
+# GET 任意 URL，响应为 JSON，用 resultJMESPath 取指定值（如监控网站 JSON API）
+# 示例：Ethereum Beacon API 当前 slot — target=beacon 节点 /eth/v1/node/syncing，取 data.head_slot
+- job_name: http_json-beacon-slot
+  metrics_path: /probe
+  params:
+    module: [ http_json ]
+    resultJMESPath: [ 'data.head_slot' ]
+    decimal: [ '0' ]
+  static_configs:
+    - targets:
+        - https://ethereum-beacon-api.publicnode.com/eth/v1/node/syncing
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: 127.0.0.1:9115
