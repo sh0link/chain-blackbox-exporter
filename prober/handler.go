@@ -35,12 +35,16 @@ import (
 
 var (
 	Probers = map[string]ProbeFn{
-		"http": ProbeHTTP,
-		"tcp":  ProbeTCP,
-		"icmp": ProbeICMP,
-		"dns":  ProbeDNS,
-		"grpc": ProbeGRPC,
-		"unix": ProbeUnix,
+		"http":          ProbeHTTP,
+		"tcp":           ProbeTCP,
+		"icmp":          ProbeICMP,
+		"dns":           ProbeDNS,
+		"grpc":          ProbeGRPC,
+		"unix":          ProbeUnix,
+		"chain_info":    ProbeChainInfo,
+		"balance":       ProbeBalance,
+		"erc20balance":  ProbeErc20Balance,
+		"contract_call": ProbeContractCall,
 	}
 )
 
@@ -120,7 +124,7 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
-	success := prober(ctx, target, module, registry, slLogger)
+	success := prober(ctx, target, module, registry, slLogger, params)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
 	if success {

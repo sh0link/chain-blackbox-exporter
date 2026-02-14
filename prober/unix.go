@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"os"
 	"syscall"
 
@@ -66,7 +67,7 @@ func dialUnix(ctx context.Context, target string, module config.Module, registry
 	return conn, err
 }
 
-func ProbeUnix(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger) bool {
+func ProbeUnix(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
 	conn, err := dialUnix(ctx, target, module, registry, logger)
 	if err != nil {
 		logger.Error("Error dialing unix", "err", err)

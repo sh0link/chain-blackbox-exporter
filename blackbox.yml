@@ -74,3 +74,19 @@ modules:
       - send: !!binary AAAACATSFi8= # 0x00, 0x00, 0x00, 0x08, 0x04, 0xD2, 0x16, 0x2F - PostgreSQL SSLRequest
       - expect_bytes: S # 0x53 - Reply will be 'S' if SSL is enabled, and 'N' if it is not.
       - starttls: true
+  # EVM chain info: latest/safe/finalized block height and chainId (target = RPC URL)
+  chain_info:
+    prober: chain_info
+    timeout: 30s
+  # Native balance and nonce (params: account[] "name:address", use_batch)
+  balance:
+    prober: balance
+    timeout: 30s
+  # ERC20 balance and symbol (params: account[] "name:address", token[] address, use_batch)
+  erc20balance:
+    prober: erc20balance
+    timeout: 30s
+  # Contract call (params: call[] "contract|methodSig|params|returnIndex|decimal")
+  contract_call:
+    prober: contract_call
+    timeout: 30s

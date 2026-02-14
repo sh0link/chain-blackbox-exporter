@@ -17,3 +17,7 @@ DOCKER_ARCHS ?= amd64 armv7 arm64 ppc64le
 include Makefile.common
 
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
+
+# 本地构建 binary 和 Docker 镜像，不发布（不 push）。产物在 dist/，镜像仅本地存在。
+goreleaser-snapshot:
+	goreleaser release --snapshot --clean

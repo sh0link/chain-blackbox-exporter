@@ -16,13 +16,15 @@ package prober
 import (
 	"context"
 	"log/slog"
+	"net/url"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-type ProbeFn func(ctx context.Context, target string, config config.Module, registry *prometheus.Registry, logger *slog.Logger) bool
+// ProbeFn runs a probe. params are the scrape URL query params (e.g. account, token, call, use_batch).
+type ProbeFn func(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool
 
 const (
 	helpSSLEarliestCertExpiry     = "Returns last SSL chain expiry in unixtime"
