@@ -56,7 +56,7 @@ func TestUnixConnection(t *testing.T) {
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewRegistry()
-	if !ProbeUnix(testCTX, ln.Addr().String(), config.Module{Unix: config.UnixProbe{}}, registry, promslog.NewNopLogger()) {
+	if !ProbeUnix(testCTX, ln.Addr().String(), config.Module{Unix: config.UnixProbe{}}, registry, promslog.NewNopLogger(), nil) {
 		t.Fatalf("Unix module failed, expected success.")
 	}
 	<-ch
@@ -70,7 +70,7 @@ func TestUnixConnectionFails(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if ProbeUnix(testCTX, socketPath, config.Module{Unix: config.UnixProbe{}}, registry, promslog.NewNopLogger()) {
+	if ProbeUnix(testCTX, socketPath, config.Module{Unix: config.UnixProbe{}}, registry, promslog.NewNopLogger(), nil) {
 		t.Fatalf("Unix module succeeded, expected failure.")
 	}
 }

@@ -2,6 +2,7 @@
 *.o
 *.a
 *.so
+__debug_bin*
 
 # Folders
 _obj
@@ -28,3 +29,4 @@ dependencies-stamp
 .deps
 *.tar.gz
 /vendor
+dist/

@@ -72,7 +72,7 @@ func TestGRPCConnection(t *testing.T) {
 		config.Module{Timeout: time.Second, GRPC: config.GRPCProbe{
 			IPProtocolFallback: false,
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
@@ -179,7 +179,7 @@ func TestGRPCConnectionWithMetadata(t *testing.T) {
 				"Authorization", "Bearer token",
 			),
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
@@ -249,7 +249,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service1",
 		},
-		}, registryService1, promslog.NewNopLogger())
+		}, registryService1, promslog.NewNopLogger(), nil)
 
 	if !resultService1 {
 		t.Fatalf("GRPC probe failed for service1")
@@ -261,7 +261,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service2",
 		},
-		}, registryService2, promslog.NewNopLogger())
+		}, registryService2, promslog.NewNopLogger(), nil)
 
 	if resultService2 {
 		t.Fatalf("GRPC probe succeed for service2")
@@ -273,7 +273,7 @@ func TestMultipleGRPCservices(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "service3",
 		},
-		}, registryService3, promslog.NewNopLogger())
+		}, registryService3, promslog.NewNopLogger(), nil)
 
 	if resultService3 {
 		t.Fatalf("GRPC probe succeed for service3")
@@ -349,7 +349,7 @@ func TestGRPCTLSConnection(t *testing.T) {
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
 			IPProtocolFallback: false,
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if !result {
 		t.Fatalf("GRPC probe failed")
@@ -413,7 +413,7 @@ func TestNoTLSConnection(t *testing.T) {
 			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
 			IPProtocolFallback: false,
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
@@ -470,7 +470,7 @@ func TestGRPCServiceNotFound(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
@@ -523,7 +523,7 @@ func TestGRPCHealthCheckUnimplemented(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if result {
 		t.Fatalf("GRPC probe succeed")
@@ -553,7 +553,7 @@ func TestGRPCAbsentFailedTLS(t *testing.T) {
 			IPProtocolFallback: false,
 			Service:            "NonExistingService",
 		},
-		}, registry, promslog.NewNopLogger())
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if result {
 		t.Fatalf("GRPC probe succeeded, should have failed")
