@@ -629,7 +629,7 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 	return true
 }
 
-// padHexToEven 确保 hex 字符串为偶数长度，供 hex.DecodeString 使用（每字节 2 个十六进制位）。
+// padHexToEven ensures the hex string has even length for hex.DecodeString (2 hex digits per byte).
 func padHexToEven(s string) string {
 	if len(s)%2 == 1 {
 		return "0" + s

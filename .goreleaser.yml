@@ -22,7 +22,7 @@ builds:
     env:
       - CGO_ENABLED=0
 
-# 不打压缩包，binary 直接上传；name_template 用于 Release 上的文件名
+# Upload binaries as-is (no archive); name_template is used for Release asset filenames
 archives:
   - formats: [ 'binary' ]
     name_template: '{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}'
@@ -37,24 +37,3 @@ changelog:
       - "^docs:"
       - "^chore:"
       - "^Merge "
-
-# dockers_v2: 使用 buildx 多架构，替代已弃用的 dockers
-# 本地 snapshot 时无 GITHUB_REPOSITORY，用 local/chain-blackbox-exporter 作为镜像名
-# extra_files 把源码和配置加入 docker 构建上下文
-dockers_v2:
-  - dockerfile: Dockerfile
-    images:
-      - 'ghcr.io/{{ or (index .Env "GITHUB_REPOSITORY") "local/chain-blackbox-exporter" }}'
-    tags:
-      - '{{ .Tag }}'
-      - latest
-    platforms:
-      - linux/amd64
-      - linux/arm64
-    extra_files:
-      - blackbox.yml
-      - go.mod
-      - go.sum
-      - main.go
-      - prober
-      - config
