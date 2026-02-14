@@ -50,7 +50,7 @@ var (
 		Unix: DefaultUnixProbe,
 	}
 
-	// defaultHTTPClientConfig 基于 prometheus common 默认值，并默认启用代理环境变量（http_proxy/https_proxy/no_proxy）
+	// defaultHTTPClientConfig is based on prometheus common defaults with proxy_from_environment enabled (http_proxy/https_proxy/no_proxy)
 	defaultHTTPClientConfig = func() config.HTTPClientConfig {
 		c := config.DefaultHTTPClientConfig
 		c.ProxyFromEnvironment = true

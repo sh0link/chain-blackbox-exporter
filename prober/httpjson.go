@@ -87,7 +87,7 @@ func ProbeHttpJson(ctx context.Context, target string, module config.Module, reg
 		return false
 	}
 
-	// jmesPathValue -> toFloat64：0x 开头按十六进制转十进制，否则按十进制
+	// jmesPathValue -> toFloat64: 0x-prefixed strings parsed as hex to decimal, otherwise as decimal
 	val, err := jmesPathValue(result, resultJMESPath)
 	if err != nil {
 		logger.Error("http_json: JMESPath or convert failed", "url", u, "resultJMESPath", resultJMESPath, "err", err)

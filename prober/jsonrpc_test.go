@@ -16,6 +16,7 @@ package prober
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -195,7 +196,8 @@ func TestProbeJsonrpc(t *testing.T) {
 	logger := promslog.New(&promslog.Config{})
 
 	t.Run("missing_method", func(t *testing.T) {
-		ok := ProbeJsonrpc(ctx, "http://localhost:9999", config.Module{}, registry, logger, url.Values{})
+		// Expected to fail; use no-op logger to avoid ERROR spam in test output
+		ok := ProbeJsonrpc(ctx, "http://localhost:9999", config.Module{}, registry, slog.New(slog.DiscardHandler), url.Values{})
 		if ok {
 			t.Error("expected false when method is missing")
 		}
@@ -280,7 +282,7 @@ func TestProbeJsonrpc(t *testing.T) {
 		for _, mf := range mfs {
 			if mf.GetName() == "jsonrpc_value" && len(mf.Metric) > 0 {
 				for _, l := range mf.Metric[0].Label {
-					if l.GetName() == "url" && !(l.GetValue() == "http://"+target || l.GetValue() == srv.URL) {
+					if l.GetName() == "url" && l.GetValue() != "http://"+target && l.GetValue() != srv.URL {
 						t.Errorf("url label = %q, expected http://%s or %s", l.GetValue(), target, srv.URL)
 					}
 				}
@@ -344,7 +346,7 @@ func TestProbeJsonrpc_MultipleCalls(t *testing.T) {
 	defer srv.Close()
 
 	registry := prometheus.NewPedanticRegistry()
-	// 使用不同 method 以产生不同 label，从而得到 2 个 jsonrpc_value 时间序列
+	// Use different methods to produce different labels, yielding 2 jsonrpc_value time series
 	params := url.Values{
 		"method":         {"getblockcount", "getblockheight"},
 		"rpcParams":      {"[]", "[]"},
@@ -369,7 +371,7 @@ func TestProbeJsonrpc_MultipleCalls(t *testing.T) {
 	if len(values) != 2 {
 		t.Fatalf("expected 2 jsonrpc_value metrics, got %d", len(values))
 	}
-	// 顺序不保证，只要包含 100 和 200 即可
+	// Order not guaranteed; just ensure both 100 and 200 are present
 	has100, has200 := false, false
 	for _, v := range values {
 		if v == 100 {

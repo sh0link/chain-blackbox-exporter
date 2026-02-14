@@ -31,7 +31,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// getEthrpcClient 由 rpcclient.go 提供，统一走 http_proxy/https_proxy 与超时配置。
+// getEthrpcClient is provided by rpcclient.go; uses http_proxy/https_proxy and shared timeout config.
 
 // jsonrpcReq is a single JSON-RPC 2.0 request.
 type jsonrpcReq struct {

@@ -16,7 +16,6 @@ package prober
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -246,8 +245,8 @@ func TestProbeHttpJson(t *testing.T) {
 		t.Fatal("http_json_value not found")
 	})
 
-	// 预期失败的用例使用 no-op logger，避免测试输出中刷 ERROR
-	nopLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	// Use no-op logger for expected-failure cases to avoid ERROR spam in test output
+	nopLogger := slog.New(slog.DiscardHandler)
 
 	t.Run("non_200_status", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

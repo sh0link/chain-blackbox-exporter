@@ -113,7 +113,7 @@ func toFloat64(v interface{}) (float64, error) {
 		return float64(x), nil
 	case string:
 		s := strings.TrimSpace(x)
-		// 0x 开头按十六进制转十进制，否则按十进制
+		// 0x-prefixed: parse as hex to decimal; otherwise parse as decimal
 		if len(s) > 2 && (s[:2] == "0x" || s[:2] == "0X") {
 			u, err := strconv.ParseUint(s[2:], 16, 64)
 			if err != nil {
