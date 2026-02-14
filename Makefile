@@ -18,6 +18,6 @@ include Makefile.common
 
 DOCKER_IMAGE_NAME       ?= blackbox-exporter
 
-# 本地构建 binary 和 Docker 镜像，不发布（不 push）。产物在 dist/，镜像仅本地存在。
+# Local build of binary and Docker image only (no push). Output in dist/; image stays local.
 goreleaser-snapshot:
 	goreleaser release --snapshot --clean

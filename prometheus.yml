@@ -63,20 +63,20 @@ scrape_configs:
   params:
     module: [ contract_call ]
     useBatch: [ "true" ]
-    # 格式: contractName:address|methodSig|params|returnName:returnIndex|decimal (name 可选，用于 metric label)
+    # Format: contractName:address|methodSig|params|returnName:returnIndex|decimal (name optional, used as metric label)
     call:
-      # 单返回值: USDC ERC20 balanceOf / totalSupply（单参）
+      # Single return: USDC ERC20 balanceOf / totalSupply (one arg)
       - USDC:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48|balanceOf(address)(uint256)|0x28C6c06298d514Db089934071355E5743bf21d60|balance:0|6
       - USDC:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48|totalSupply()(uint256)||totalSupply:0|6
-      # 入参 2 个: ERC20 allowance(owner, spender)，逗号分隔
+      # Two args: ERC20 allowance(owner, spender), comma-separated
       - USDC:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48|allowance(address,address)(uint256)|0x28C6c06298d514Db089934071355E5743bf21d60,0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D|allowance:0|6
-      # 返回值为 address: owner()（如 Uniswap V2 Router 的 owner）
+      # Address return: owner() (e.g. Uniswap V2 Router owner)
       - USDC:0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48|owner()(address)||owner:0|0
-      # 多返回值: Uniswap V2 WETH/USDC 池 getReserves() -> (reserve0, reserve1, blockTimestampLast)
+      # Multiple returns: Uniswap V2 WETH/USDC pool getReserves() -> (reserve0, reserve1, blockTimestampLast)
       - UniswapV2_WETH_USDC:0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc|getReserves()(uint112,uint112,uint32)||reserve0:0|6
       - UniswapV2_WETH_USDC:0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc|getReserves()(uint112,uint112,uint32)||reserve1:1|18
       - UniswapV2_WETH_USDC:0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc|getReserves()(uint112,uint112,uint32)||blockTimestampLast:2|0
-      # 多返回值: Chainlink ETH/USD latestRoundData() -> (roundId, answer, startedAt, updatedAt, answeredInRound)
+      # Multiple returns: Chainlink ETH/USD latestRoundData() -> (roundId, answer, startedAt, updatedAt, answeredInRound)
       - Chainlink_ETH_USD:0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419|latestRoundData()(uint80,int256,uint256,uint256,uint80)||answer:1|8
   static_configs:
     - targets:
