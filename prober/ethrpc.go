@@ -687,10 +687,26 @@ func encodeCallData(methodSig, paramsStr string) (string, error) {
 	}
 	var encoded []string
 	params := strings.Split(paramsStr, ",")
-	// infer types from common patterns: 0x... = address, else uint256
+	// Infer types from common patterns:
+	//   0x + 40 hex chars -> address (left-padded to 32 bytes)
+	//   0x + 64 hex chars -> bytes32 (already 32 bytes, used as-is)
+	//   otherwise         -> uint256 (decimal)
+	//
+	// bytes32 support matters for GMX-style DataStore contracts, whose keys are
+	// keccak256(abi.encode(...)) hashes passed to getUint/getBool/getBytes32Count.
+	// Without this branch such params fell into the address case and failed with
+	// "invalid address length" (64 != 40).
 	for _, p := range params {
 		p = strings.TrimSpace(p)
 		if strings.HasPrefix(p, "0x") {
+			hexBody := strings.TrimPrefix(p, "0x")
+			if len(hexBody) == 64 {
+				if _, ok := new(big.Int).SetString(hexBody, 16); !ok {
+					return "", fmt.Errorf("invalid bytes32 param: %s", p)
+				}
+				encoded = append(encoded, strings.ToLower(hexBody))
+				continue
+			}
 			addrHex, err := addrToHex(p)
 			if err != nil {
 				return "", err
@@ -789,6 +805,12 @@ func ProbeContractCall(ctx context.Context, target string, module config.Module,
 	}, []string{"url", "chain_id", "contract_name", "contract", "method", "params", "return_name"})
 	registry.MustRegister(gauge)
 
+	// Track how many call specs actually produced a metric. A probe that emitted
+	// nothing must not report success: previously every per-call failure hit
+	// `continue` and the function still returned true, so a fully broken probe
+	// looked healthy (probe_success=1) while exporting no series at all.
+	succeeded := 0
+
 	for _, spec := range callSpecs {
 		contractAddr, contractName, methodSig, paramsStr, returnName, returnIndex, decimal, err := parseCallSpec(spec)
 		if err != nil {
@@ -825,6 +847,15 @@ func ProbeContractCall(ctx context.Context, target string, module config.Module,
 			methodName = methodName[:idx]
 		}
 		gauge.WithLabelValues(rpcURL, chainIDStr, contractName, contractAddr, methodName, paramsStr, returnName).Set(val)
+		succeeded++
+	}
+
+	if succeeded == 0 {
+		logger.Error("all contract calls failed", "specs", len(callSpecs))
+		return false
+	}
+	if succeeded < len(callSpecs) {
+		logger.Warn("some contract calls failed", "succeeded", succeeded, "total", len(callSpecs))
 	}
 	return true
 }

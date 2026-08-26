@@ -656,6 +656,38 @@ func TestEncodeCallData(t *testing.T) {
 	if len(data2) != 2+4*2+32*2 {
 		t.Errorf("encodeCallData balanceOf len = %d", len(data2))
 	}
+
+	// getUint(bytes32): a 64-hex-char 0x param is a bytes32 key, not an address.
+	// Real key: keccak256(abi.encode("MAX_ORACLE_PRICE_AGE")) used by GMX-style
+	// DataStore contracts. Before bytes32 support this returned
+	// "invalid address length" and the caller silently skipped the call.
+	key := "0x2498be75403c532695a52aa481268f4d166a68f0d7468b5a879e2beb6ec70062"
+	data3, err := encodeCallData("getUint(bytes32)(uint256)", key)
+	if err != nil {
+		t.Fatalf("encodeCallData getUint(bytes32) failed: %v", err)
+	}
+	if len(data3) != 2+4*2+32*2 {
+		t.Errorf("encodeCallData getUint len = %d, want %d", len(data3), 2+4*2+32*2)
+	}
+	// bytes32 is already 32 bytes: it must be appended verbatim, not zero-padded.
+	if got, want := data3[10:], strings.TrimPrefix(key, "0x"); got != want {
+		t.Errorf("bytes32 param encoded as %s, want %s", got, want)
+	}
+
+	// Mixed params: bytes32 + address (e.g. keccak key plus a market address).
+	addr := "0xF59B083e6B700F011475c70A2F81FA49378e28d3"
+	data4, err := encodeCallData("getUint(bytes32,address)(uint256)", key+","+addr)
+	if err != nil {
+		t.Fatalf("encodeCallData mixed params failed: %v", err)
+	}
+	if len(data4) != 2+4*2+2*32*2 {
+		t.Errorf("encodeCallData mixed len = %d, want %d", len(data4), 2+4*2+2*32*2)
+	}
+
+	// A 0x param that is neither 40 nor 64 hex chars is still an error.
+	if _, err := encodeCallData("f(address)(uint256)", "0xdeadbeef"); err == nil {
+		t.Error("encodeCallData should reject malformed 0x param")
+	}
 }
 
 func TestDecodeCallResult(t *testing.T) {
