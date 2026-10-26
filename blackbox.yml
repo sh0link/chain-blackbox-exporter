@@ -61,6 +61,8 @@ modules:
     timeout: 5s
     icmp:
       ttl: 5
+  websocket:
+    prober: websocket
   http_3xx:
     prober: http
     http:

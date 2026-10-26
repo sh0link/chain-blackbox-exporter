@@ -87,7 +87,7 @@ func dialTCP(ctx context.Context, target string, module config.Module, registry 
 	return tls.DialWithDialer(dialer, dialProtocol, dialTarget, tlsConfig)
 }
 
-func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
+func ProbeTCP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, _ url.Values) bool {
 	conn, err := dialTCP(ctx, target, module, registry, logger)
 	if err != nil {
 		logger.Error("Error dialing TCP", "err", err)

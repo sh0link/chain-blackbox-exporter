@@ -24,11 +24,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func normalizeURLForHttpJson(target string) string {
+func normalizeURLForHTTPJSON(target string) string {
 	if target == "" {
 		return target
 	}
@@ -38,13 +39,13 @@ func normalizeURLForHttpJson(target string) string {
 	return target
 }
 
-// ProbeHttpJson GETs the target URL (Accept: application/json), parses the response as JSON,
+// ProbeHTTPJSON GETs the target URL (Accept: application/json), parses the response as JSON,
 // extracts a numeric value via resultJMESPath, and exports it as http_json_value.
 // Params: resultJMESPath (required), decimal (optional, default 0).
 // Example: monitor Eth beacon API slot — target=https://beacon-api/eth/v1/node/syncing, resultJMESPath=data.head_slot
-func ProbeHttpJson(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
+func ProbeHTTPJSON(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
 	_ = module
-	u := normalizeURLForHttpJson(target)
+	u := normalizeURLForHTTPJSON(target)
 
 	resultJMESPath := strings.TrimSpace(params.Get("resultJMESPath"))
 	if resultJMESPath == "" {
@@ -81,7 +82,7 @@ func ProbeHttpJson(ctx context.Context, target string, module config.Module, reg
 		return false
 	}
 
-	var result interface{}
+	var result any
 	if err := json.Unmarshal(body, &result); err != nil {
 		logger.Error("http_json: JSON unmarshal failed", "url", u, "err", err)
 		return false

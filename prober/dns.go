@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"time"
 
 	"github.com/miekg/dns"
@@ -30,8 +31,8 @@ import (
 
 // validRRs checks a slice of RRs received from the server against a DNSRRValidator.
 func validRRs(rrs *[]dns.RR, v *config.DNSRRValidator, logger *slog.Logger) bool {
-	var anyMatch = false
-	var allMatch = true
+	anyMatch := false
+	allMatch := true
 	// Fail the probe if there are no RRs of a given type, but a regexp match is required
 	// (i.e. FailIfNotMatchesRegexp or FailIfNoneMatchesRegexp is set).
 	if len(*rrs) == 0 && len(v.FailIfNotMatchesRegexp) > 0 {
@@ -114,17 +115,15 @@ func validRcode(rcode int, valid []string, logger *slog.Logger) bool {
 			validRcodes = append(validRcodes, rc)
 		}
 	}
-	for _, rc := range validRcodes {
-		if rcode == rc {
-			logger.Debug("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
-			return true
-		}
+	if slices.Contains(validRcodes, rcode) {
+		logger.Debug("Rcode is valid", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode])
+		return true
 	}
 	logger.Error("Rcode is not one of the valid rcodes", "rcode", rcode, "string_rcode", dns.RcodeToString[rcode], "valid_rcodes", validRcodes)
 	return false
 }
 
-func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
+func ProbeDNS(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, _ url.Values) bool {
 	var dialProtocol string
 	probeDNSDurationGaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "probe_dns_duration_seconds",
@@ -257,7 +256,7 @@ func ProbeDNS(ctx context.Context, target string, module config.Module, registry
 	msg.Id = dns.Id()
 	msg.RecursionDesired = module.DNS.Recursion
 	msg.Question = make([]dns.Question, 1)
-	msg.Question[0] = dns.Question{dns.Fqdn(module.DNS.QueryName), qt, qc}
+	msg.Question[0] = dns.Question{Name: dns.Fqdn(module.DNS.QueryName), Qtype: qt, Qclass: qc}
 
 	logger.Debug("Making DNS query", "target", targetIP, "dial_protocol", dialProtocol, "query", module.DNS.QueryName, "type", qt, "class", qc)
 	timeoutDeadline, _ := ctx.Deadline()

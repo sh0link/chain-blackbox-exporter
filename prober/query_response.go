@@ -60,6 +60,10 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 		probeTLSInfoGaugeOpts,
 		[]string{"version"},
 	)
+	probeTLSCipher := prometheus.NewGaugeVec(
+		probeTLSCipherGaugeOpts,
+		[]string{"cipher"},
+	)
 	probeFailedDueToRegex := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "probe_failed_due_to_regex",
 		Help: "Indicates if probe failed due to regex",
@@ -73,16 +77,19 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 	var queryResponses []config.QueryResponse
 	var tlsConfig *pconfig.TLSConfig
+	var checkRevoked bool
 	var useTLS bool
 
 	switch proberName {
 	case "tcp":
 		queryResponses = module.TCP.QueryResponse
 		tlsConfig = &module.TCP.TLSConfig
+		checkRevoked = module.TCP.CheckRevoked
 		useTLS = module.TCP.TLS
 	case "unix":
 		queryResponses = module.Unix.QueryResponse
 		tlsConfig = &module.Unix.TLSConfig
+		checkRevoked = module.Unix.CheckRevoked
 		useTLS = module.Unix.TLS
 	}
 
@@ -94,11 +101,13 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 	if useTLS {
 		state := conn.(*tls.Conn).ConnectionState()
-		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+		registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 		probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 		probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+		probeTLSCipher.WithLabelValues(getTLSCipher(&state)).Set(1)
 		probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 		probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+		checkCRL(ctx, &state, checkRevoked, nil, registry, logger)
 	}
 
 	scanner := bufio.NewScanner(conn)
@@ -132,10 +141,10 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 			}
 		}
 		if qr.ExpectBytes != "" {
-			expect_bytes := []byte(qr.ExpectBytes)
+			expectBytes := []byte(qr.ExpectBytes)
 
 			// Try to read same number of bytes as expected.
-			data := make([]byte, len(expect_bytes))
+			data := make([]byte, len(expectBytes))
 			n, err := conn.Read(data)
 			if err != nil {
 				logger.Error("Error reading from connection", "err", err)
@@ -144,17 +153,17 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 			logger.Debug("Read bytes", "bytes", data)
 
-			if n < len(expect_bytes) {
-				logger.Error("Read less data than expected", "expected", expect_bytes, "bytes", data)
+			if n < len(expectBytes) {
+				logger.Error("Read less data than expected", "expected", expectBytes, "bytes", data)
 				return false
 			}
 
-			if !bytes.Equal(expect_bytes, data) {
+			if !bytes.Equal(expectBytes, data) {
 				probeFailedDueToBytes.Set(1)
-				logger.Error("Bytes did not match", "expected", expect_bytes, "bytes", data)
+				logger.Error("Bytes did not match", "expected", expectBytes, "bytes", data)
 				return false
 			}
-			logger.Debug("Bytes matched", "expected", expect_bytes, "bytes", data)
+			logger.Debug("Bytes matched", "expected", expectBytes, "bytes", data)
 			probeFailedDueToBytes.Set(0)
 		}
 		if send != "" {
@@ -191,11 +200,13 @@ func probeQueryResponses(ctx context.Context, target string, conn net.Conn, modu
 
 			// Get certificate expiry.
 			state := tlsConn.ConnectionState()
-			registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
+			registry.MustRegister(probeSSLEarliestCertExpiry, probeTLSVersion, probeTLSCipher, probeSSLLastChainExpiryTimestampSeconds, probeSSLLastInformation)
 			probeSSLEarliestCertExpiry.Set(float64(getEarliestCertExpiry(&state).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&state)).Set(1)
+			probeTLSCipher.WithLabelValues(getTLSCipher(&state)).Set(1)
 			probeSSLLastChainExpiryTimestampSeconds.Set(float64(getLastChainExpiry(&state).Unix()))
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&state), getSubject(&state), getIssuer(&state), getDNSNames(&state), getSerialNumber(&state)).Set(1)
+			checkCRL(ctx, &state, checkRevoked, nil, registry, logger)
 		}
 	}
 	return true

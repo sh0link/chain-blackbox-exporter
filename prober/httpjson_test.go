@@ -23,9 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/promslog"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 func TestNormalizeURLForHttpJson(t *testing.T) {
@@ -41,16 +42,16 @@ func TestNormalizeURLForHttpJson(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			got := normalizeURLForHttpJson(tt.in)
+			got := normalizeURLForHTTPJSON(tt.in)
 			if got != tt.want {
-				t.Errorf("normalizeURLForHttpJson(%q) = %q, want %q", tt.in, got, tt.want)
+				t.Errorf("normalizeURLForHTTPJSON(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
 	}
 }
 
-// mockHttpJsonServer returns a server that responds to GET with JSON body.
-func mockHttpJsonServer(t *testing.T, body interface{}) *httptest.Server {
+// mockHTTPJSONServer returns a server that responds to GET with JSON body.
+func mockHTTPJSONServer(t *testing.T, body any) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -62,22 +63,22 @@ func mockHttpJsonServer(t *testing.T, body interface{}) *httptest.Server {
 	}))
 }
 
-func TestProbeHttpJson(t *testing.T) {
+func TestProbeHTTPJSON(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	registry := prometheus.NewPedanticRegistry()
 	logger := promslog.New(&promslog.Config{})
 
 	t.Run("success_whole_result", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, map[string]interface{}{"value": float64(42)})
+		srv := mockHTTPJSONServer(t, map[string]any{"value": float64(42)})
 		defer srv.Close()
 
 		params := url.Values{
 			"resultJMESPath": {"value"},
 		}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, registry, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, registry, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, err := registry.Gather()
 		if err != nil {
@@ -96,8 +97,8 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("success_jmespath_nested", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, map[string]interface{}{
-			"data": map[string]interface{}{"head_slot": "12345"},
+		srv := mockHTTPJSONServer(t, map[string]any{
+			"data": map[string]any{"head_slot": "12345"},
 		})
 		defer srv.Close()
 
@@ -105,9 +106,9 @@ func TestProbeHttpJson(t *testing.T) {
 		params := url.Values{
 			"resultJMESPath": {"data.head_slot"},
 		}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -122,16 +123,16 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("success_hex_value", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, map[string]interface{}{"block": "0x1a2b"})
+		srv := mockHTTPJSONServer(t, map[string]any{"block": "0x1a2b"})
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{
 			"resultJMESPath": {"block"},
 		}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -147,14 +148,14 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("default_resultJMESPath", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, float64(100))
+		srv := mockHTTPJSONServer(t, float64(100))
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{} // no resultJMESPath -> default "@"
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -169,7 +170,7 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("decimal_scale", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, "1234567890")
+		srv := mockHTTPJSONServer(t, "1234567890")
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
@@ -177,9 +178,9 @@ func TestProbeHttpJson(t *testing.T) {
 			"resultJMESPath": {"@"},
 			"decimal":        {"6"},
 		}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -195,14 +196,14 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("url_label", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, float64(1))
+		srv := mockHTTPJSONServer(t, float64(1))
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{"resultJMESPath": {"@"}}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -219,14 +220,14 @@ func TestProbeHttpJson(t *testing.T) {
 	})
 
 	t.Run("labels_present", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, map[string]interface{}{"x": float64(1)})
+		srv := mockHTTPJSONServer(t, map[string]any{"x": float64(1)})
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{"resultJMESPath": {"x"}}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, logger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, logger, params)
 		if !ok {
-			t.Fatal("ProbeHttpJson failed")
+			t.Fatal("ProbeHTTPJSON failed")
 		}
 		mfs, _ := reg.Gather()
 		for _, mf := range mfs {
@@ -256,9 +257,9 @@ func TestProbeHttpJson(t *testing.T) {
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{"resultJMESPath": {"@"}}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
 		if ok {
-			t.Error("expected ProbeHttpJson to fail on 500")
+			t.Error("expected ProbeHTTPJSON to fail on 500")
 		}
 	})
 
@@ -271,21 +272,21 @@ func TestProbeHttpJson(t *testing.T) {
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{"resultJMESPath": {"@"}}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
 		if ok {
-			t.Error("expected ProbeHttpJson to fail on invalid JSON")
+			t.Error("expected ProbeHTTPJSON to fail on invalid JSON")
 		}
 	})
 
 	t.Run("jmespath_no_match", func(t *testing.T) {
-		srv := mockHttpJsonServer(t, map[string]interface{}{"a": 1})
+		srv := mockHTTPJSONServer(t, map[string]any{"a": 1})
 		defer srv.Close()
 
 		reg := prometheus.NewPedanticRegistry()
 		params := url.Values{"resultJMESPath": {"missing"}}
-		ok := ProbeHttpJson(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
+		ok := ProbeHTTPJSON(ctx, srv.URL, config.Module{}, reg, nopLogger, params)
 		if ok {
-			t.Error("expected ProbeHttpJson to fail when JMESPath has no match")
+			t.Error("expected ProbeHTTPJSON to fail when JMESPath has no match")
 		}
 	})
 }

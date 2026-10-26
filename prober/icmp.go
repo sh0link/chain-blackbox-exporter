@@ -20,7 +20,6 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
-	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -34,26 +33,23 @@ import (
 )
 
 var (
-	icmpID            int
 	icmpSequence      uint16
 	icmpSequenceMutex sync.Mutex
 )
 
 func init() {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	// PID is typically 1 when running in a container; in that case, set
-	// the ICMP echo ID to a random value to avoid potential clashes with
-	// other blackbox_exporter instances. See #411.
-	if pid := os.Getpid(); pid == 1 {
-		icmpID = r.Intn(1 << 16)
-	} else {
-		icmpID = pid & 0xffff
-	}
-
 	// Start the ICMP echo sequence at a random offset to prevent them from
 	// being in sync when several blackbox_exporter instances are restarted
 	// at the same time. See #411.
 	icmpSequence = uint16(r.Intn(1 << 16))
+}
+
+func getRandomICMPID() int {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Generate a random ICMP ID for each probe to avoid potential clashes
+	// with other blackbox_exporter instances or concurrent probes.
+	return r.Intn(1 << 16)
 }
 
 func getICMPSequence() uint16 {
@@ -63,7 +59,7 @@ func getICMPSequence() uint16 {
 	return icmpSequence
 }
 
-func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) (success bool) {
+func ProbeICMP(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, _ url.Values) (success bool) {
 	var (
 		requestType     icmp.Type
 		replyType       icmp.Type
@@ -89,7 +85,6 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	registry.MustRegister(durationGaugeVec)
 
 	dstIPAddr, lookupTime, err := chooseProtocol(ctx, module.ICMP.IPProtocol, module.ICMP.IPProtocolFallback, target, registry, logger)
-
 	if err != nil {
 		logger.Error("Error resolving address", "err", err)
 		return false
@@ -124,7 +119,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			// "udp" here means unprivileged -- not the protocol "udp".
 			icmpConn, err = icmp.ListenPacket("udp6", srcIP.String())
 			if err != nil {
-				logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+				logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 			} else {
 				privileged = false
 			}
@@ -140,7 +135,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 		defer icmpConn.Close()
 
 		if err := icmpConn.IPv6PacketConn().SetControlMessage(ipv6.FlagHopLimit, true); err != nil {
-			logger.Error("Failed to set Control Message for retrieving Hop Limit", "err", err)
+			logger.Debug("Failed to set Control Message for retrieving Hop Limit", "err", err)
 			hopLimitFlagSet = false
 		}
 	} else {
@@ -169,14 +164,14 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer v4RawConn.Close()
 
 			if err := v4RawConn.SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		} else {
 			if tryUnprivileged {
 				icmpConn, err = icmp.ListenPacket("udp4", srcIP.String())
 				if err != nil {
-					logger.Error("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
+					logger.Debug("Unable to do unprivileged listen on socket, will attempt privileged", "err", err)
 				} else {
 					privileged = false
 				}
@@ -192,7 +187,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 			defer icmpConn.Close()
 
 			if err := icmpConn.IPv4PacketConn().SetControlMessage(ipv4.FlagTTL, true); err != nil {
-				logger.Error("Failed to set Control Message for retrieving TTL", "err", err)
+				logger.Debug("Failed to set Control Message for retrieving TTL", "err", err)
 				hopLimitFlagSet = false
 			}
 		}
@@ -212,7 +207,7 @@ func ProbeICMP(ctx context.Context, target string, module config.Module, registr
 	}
 
 	body := &icmp.Echo{
-		ID:   icmpID,
+		ID:   getRandomICMPID(),
 		Seq:  int(getICMPSequence()),
 		Data: data,
 	}

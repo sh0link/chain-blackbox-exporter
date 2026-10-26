@@ -25,35 +25,35 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/promslog"
 	"go.yaml.in/yaml/v2"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
-var (
-	Probers = map[string]ProbeFn{
-		"http":          ProbeHTTP,
-		"tcp":           ProbeTCP,
-		"icmp":          ProbeICMP,
-		"dns":           ProbeDNS,
-		"grpc":          ProbeGRPC,
-		"unix":          ProbeUnix,
-		"chain_info":    ProbeChainInfo,
-		"balance":       ProbeBalance,
-		"erc20balance":  ProbeErc20Balance,
-		"contract_call": ProbeContractCall,
-		"jsonrpc":       ProbeJsonrpc,
-		"http_json":    ProbeHttpJson,
-	}
-)
+var Probers = map[string]ProbeFn{
+	"http":          ProbeHTTP,
+	"tcp":           ProbeTCP,
+	"icmp":          ProbeICMP,
+	"dns":           ProbeDNS,
+	"grpc":          ProbeGRPC,
+	"unix":          ProbeUnix,
+	"websocket":     ProbeWebsocket,
+	"chain_info":    ProbeChainInfo,
+	"balance":       ProbeBalance,
+	"erc20balance":  ProbeErc20Balance,
+	"contract_call": ProbeContractCall,
+	"jsonrpc":       ProbeJsonrpc,
+	"http_json":     ProbeHTTPJSON,
+}
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,
 	moduleUnknownCounter prometheus.Counter,
-	promslogConfig *promslog.Config) {
-
+	promslogConfig *promslog.Config,
+) {
 	if params == nil {
 		params = r.URL.Query()
 	}
@@ -89,6 +89,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		Name: "probe_duration_seconds",
 		Help: "Returns how long the probe took to complete in seconds",
 	})
+	probeTimeoutGauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "probe_timeout_seconds",
+		Help: "Returns how long the probe timeout is in seconds",
+	})
 
 	target := params.Get("target")
 	if target == "" {
@@ -96,6 +100,10 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 		return
 	}
 
+	decodedTarget, err := url.QueryUnescape(target)
+	if err == nil {
+		target = decodedTarget
+	}
 	prober, ok := Probers[module.Prober]
 	if !ok {
 		http.Error(w, fmt.Sprintf("Unknown prober %q", module.Prober), http.StatusBadRequest)
@@ -126,9 +134,11 @@ func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *s
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(probeSuccessGauge)
 	registry.MustRegister(probeDurationGauge)
+	registry.MustRegister(probeTimeoutGauge)
 	success := prober(ctx, target, module, registry, slLogger, params)
 	duration := time.Since(start).Seconds()
 	probeDurationGauge.Set(duration)
+	probeTimeoutGauge.Set(timeoutSeconds)
 	if success {
 		probeSuccessGauge.Set(1)
 		slLogger.Debug("Probe succeeded", "duration_seconds", duration)
@@ -226,7 +236,7 @@ func (sl *scrapeLogger) WithGroup(name string) slog.Handler {
 	}
 }
 
-func newScrapeLogger(config *promslog.Config, module string, target string) *scrapeLogger {
+func newScrapeLogger(config *promslog.Config, module, target string) *scrapeLogger {
 	// The base logger that will write to stderr like usual.
 	l := promslog.New(config)
 
@@ -285,7 +295,7 @@ func getTimeout(r *http.Request, module config.Module, offset float64) (timeoutS
 		timeoutSeconds = 120
 	}
 
-	var maxTimeoutSeconds = timeoutSeconds - offset
+	maxTimeoutSeconds := timeoutSeconds - offset
 	if module.Timeout.Seconds() < maxTimeoutSeconds && module.Timeout.Seconds() > 0 || maxTimeoutSeconds < 0 {
 		timeoutSeconds = module.Timeout.Seconds()
 	} else {

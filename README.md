@@ -1,6 +1,6 @@
 # Blackbox exporter
 
-[![CircleCI](https://circleci.com/gh/prometheus/blackbox_exporter/tree/master.svg?style=shield)][circleci]
+[![Build Status](https://github.com/prometheus/blackbox_exporter/actions/workflows/ci.yml/badge.svg)](https://github.com/prometheus/blackbox_exporter/actions/workflows/ci.yml)
 [![Docker Repository on Quay](https://quay.io/repository/prometheus/blackbox-exporter/status)][quay]
 [![Docker Pulls](https://img.shields.io/docker/pulls/prom/blackbox-exporter.svg?maxAge=604800)][hub]
 
@@ -34,6 +34,16 @@ Visiting [http://localhost:9115/probe?target=google.com&module=http_2xx](http://
 will return metrics for a HTTP probe against google.com. The `probe_success`
 metric indicates if the probe succeeded. Adding a `debug=true` parameter
 will return debug information for that probe.
+
+The probe will also return timing metrics for measuring how long it takes to
+probe the target.
+
+For example, you can find out how much of the probe timeout is used. This is
+useful because Prometheus timeouts can never be longer than the scrape interval.
+
+    probe_duration_seconds / probe_timeout_seconds
+
+This query will return the ratio of remaining time.
 
 Metrics concerning the operation of the exporter itself are available at the
 endpoint <http://localhost:9115/metrics>.
@@ -248,6 +258,26 @@ victoria-metrics --promscrape.config=./prometheus.yml --storageDataPath=/tmp/dat
 
 open localhost:19090
 ```
+
+### DNS resolution of targets
+
+The blackbox exporter resolves the target hostname on every probe and does not
+cache the result. This applies to all probers except `unix`.
+
+IP address targets are used as-is and never cause a DNS query. For the `dns`
+prober the lookup is for the DNS server given as the target, not for
+`query_name`.
+
+With the default `ip_protocol_fallback: true`, each lookup asks for both A and
+AAAA records, so one probe can send two queries. Setting
+`preferred_ip_protocol` and `ip_protocol_fallback: false` limits it to one
+record type.
+
+If you probe many hostnames at a short interval and want fewer DNS queries,
+run a caching DNS resolver next to the exporter, such as systemd-resolved,
+unbound or dnsmasq, and point the exporter's `/etc/resolv.conf` at it. The
+systemd-resolved stub (`127.0.0.53`) or NodeLocal DNSCache on Kubernetes work
+the same way.
 
 ## Permissions
 

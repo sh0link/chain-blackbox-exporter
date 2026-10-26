@@ -25,18 +25,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/promslog"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 // mockEthRPCServerV2 reads body once and handles single or batch JSON-RPC.
-func mockEthRPCServerV2(t *testing.T, handlers map[string]func(params []interface{}) interface{}) *httptest.Server {
+func mockEthRPCServerV2(t *testing.T, handlers map[string]func(params []any) any) *httptest.Server {
 	t.Helper()
 	chainID := "0x1"
 	blockNumber := "0x1234"
-	blockSafeFinalized := map[string]interface{}{"number": "0x1230"}
+	blockSafeFinalized := map[string]any{"number": "0x1230"}
 	getBalance := "0xde0b6b3a7640000"
 	getNonce := "0x2a"
 	ethCallResult := "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
@@ -70,7 +71,7 @@ func mockEthRPCServerV2(t *testing.T, handlers map[string]func(params []interfac
 		// Try single request first (object)
 		var single jsonrpcReq
 		if err := json.Unmarshal(raw, &single); err == nil && single.Method != "" {
-			var res interface{}
+			var res any
 			switch single.Method {
 			case "eth_chainId":
 				res = chainID
@@ -101,7 +102,7 @@ func mockEthRPCServerV2(t *testing.T, handlers map[string]func(params []interfac
 		if err := json.Unmarshal(raw, &batch); err == nil && len(batch) > 0 {
 			var out []jsonrpcResp
 			for _, req := range batch {
-				var res interface{}
+				var res any
 				switch req.Method {
 				case "eth_chainId":
 					res = chainID
@@ -517,8 +518,8 @@ func TestProbeBalance_UseBatch(t *testing.T) {
 }
 
 func TestProbeErc20Balance(t *testing.T) {
-	srv := mockEthRPCServerV2(t, map[string]func([]interface{}) interface{}{
-		"eth_call": func(p []interface{}) interface{} {
+	srv := mockEthRPCServerV2(t, map[string]func([]any) any{
+		"eth_call": func(_ []any) any {
 			// first call is balanceOf, second is symbol; return balance then ABI-encoded "USDC"
 			return "0x0000000000000000000000000000000000000000000000000de0b6b3a7640000"
 		},

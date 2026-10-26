@@ -49,7 +49,7 @@ then a single address is selected to test, using the following logic:
   specified by `preferred_ip_protocol`.  The connection will fail if an
   address from the specified family is not available.
 * If there are multiple addresses in the chosen address family, then only
-  the the first one found is used.  In the case of round-robin DNS this
+  the first one found is used.  In the case of round-robin DNS this
   means that effectively one will be selected at random.
 
 ### `<module>`
@@ -68,6 +68,7 @@ then a single address is selected to test, using the following logic:
   [ icmp: <icmp_probe> ]
   [ grpc: <grpc_probe> ]
   [ unix: <unix_probe> ]
+  [ websocket: <websocket_probe> ]
 
 ```
 
@@ -151,6 +152,12 @@ then a single address is selected to test, using the following logic:
   # Configuration for TLS protocol of HTTP probe.
   tls_config:
     [ <tls_config> ]
+
+  # Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+  # This only reports revocation state, it never fails the probe: a revoked certificate or
+  # an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+  # CRLs are fetched using the proxy settings configured below.
+  [ check_revoked: <boolean> | default = false ]
 
   # The HTTP basic authentication credentials.
   basic_auth:
@@ -258,6 +265,12 @@ query_response:
 tls_config:
   [ <tls_config> ]
 
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true, or a query_response step using starttls.
+[ check_revoked: <boolean> | default = false ]
+
 ```
 
 ### `<unix_probe>`
@@ -266,12 +279,14 @@ tls_config:
 
 # The query sent in the unix socket probe and the expected associated response.
 # "expect" matches a regular expression;
+# "expect_bytes" does exact byte-by-byte match, mutually exclusive with "expect".
 # "labels" can define labels which will be exported on metric "probe_expect_info";
 # "send" sends some content;
 # "send" and "labels.value" can contain values matched by "expect" (such as "${1}");
 # "starttls" upgrades connection to TLS.
 query_response:
   [ - [ [ expect: <string> ],
+        [ expect_bytes: <string> ],
         [ labels:
           - [ name: <string>
               value: <string>
@@ -288,6 +303,12 @@ query_response:
 # Configuration for TLS protocol of unix socket probe.
 tls_config:
   [ <tls_config> ]
+
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true, or a query_response step using starttls.
+[ check_revoked: <boolean> | default = false ]
 
 ```
 
@@ -414,6 +435,95 @@ metadata:
 # Configuration for TLS protocol of gRPC probe.
 tls_config:
   [ <tls_config> ]
+
+# Check each certificate in the TLS chain against its CRL and emit probe_ssl_crl_* metrics.
+# This only reports revocation state, it never fails the probe: a revoked certificate or
+# an unreachable CRL leaves probe_success untouched. Alert on the metrics instead.
+# Requires tls to be true.
+[ check_revoked: <boolean> | default = false ]
+```
+
+### `<websocket_probe>`
+
+```yml
+# Optional HTTP request configuration
+http_config:
+  [ <http_client_config> ]
+
+# The HTTP headers set for the probe.
+# The HTTP headers set for the probe.
+headers:
+  [ <string>:
+    [ values: [<string>, ...] ],
+    [ secrets: [<secret>, ...] ],
+    [ files: [<filename>, ...] ]
+  ], ...
+
+# The query sent after connection upgrade and the expected associated response.
+# "expect" matches a regular expression against incoming messages;
+# "send" sends a message (can use values matched by "expect" such as "${1}").
+query_response:
+  [ - [ expect: <regex> ],
+        [ send: <string> ],
+        [ starttls: <boolean | default = false> ]
+      ], ...
+  ]
+
+  # The IP protocol of the Websocket probe (ip4, ip6).
+  [ preferred_ip_protocol: <string> | default = "ip6" ]
+
+  # Fallback to the other IP protocol if the `preferred_ip_protocol` fails.
+  [ ip_protocol_fallback: <boolean> | default = true ]
+
+```
+
+### `<http_client_config>`
+
+```yml
+  # The HTTP basic authentication credentials.
+  basic_auth:
+    [ username: <string> ]
+    [ password: <secret> ]
+    [ username_file: <filename> ]
+    [ password_file: <filename> ]
+
+  # Sets the `Authorization` header on every request with
+  # the configured credentials.
+  authorization:
+    # Sets the authentication type of the request.
+    [ type: <string> | default: Bearer ]
+    # Sets the credentials of the request. It is mutually exclusive with
+    # `credentials_file`.
+    [ credentials: <secret> ]
+    # Sets the credentials of the request with the credentials read from the
+    # configured file. It is mutually exclusive with `credentials`.
+    [ credentials_file: <filename> ]
+
+  # OAuth 2.0 configuration to use to connect to the targets.
+  oauth2:
+    [ <oauth2> ]
+
+  # Whether to enable HTTP2.
+  [ enable_http2: <bool> | default: true ]
+
+  # Configuration for TLS protocol of HTTP probe.
+  tls_config:
+    [ <tls_config> ]
+
+  # HTTP proxy server to use to connect to the targets.
+  [ proxy_url: <string> ]
+  # Comma-separated string that can contain IPs, CIDR notation, domain names
+  # that should be excluded from proxying. IP and domain names can
+  # contain port numbers.
+  [ no_proxy: <string> ]
+  # Use proxy URL indicated by environment variables (HTTP_PROXY, https_proxy, HTTPs_PROXY, https_proxy, and no_proxy)
+  [ proxy_from_environment: <bool> | default: false ]
+  # Specifies headers to send to proxies during CONNECT requests.
+  [ proxy_connect_header:
+    [ <string>: [<secret>, ...] ] ]
+
+  # Whether or not the probe will follow any redirects.
+  [ follow_redirects: <boolean> | default = true ]
 ```
 
 ### `<tls_config>`
@@ -426,11 +536,23 @@ tls_config:
 # The CA cert to use for the targets.
 [ ca_file: <filename> ]
 
+# Text of the CA cert to use for the targets.
+# It is mutually exclusive with `ca_file`.
+[ ca: <string> ]
+
 # The client cert file for the targets.
 [ cert_file: <filename> ]
 
+# Text of the client cert for the targets.
+# It is mutually exclusive with `cert_file`.
+[ cert: <string> ]
+
 # The client key file for the targets.
 [ key_file: <filename> ]
+
+# Text of the client key for the targets.
+# It is mutually exclusive with `key_file`.
+[ key: <secret> ]
 
 # Used to verify the hostname for the targets.
 [ server_name: <string> ]
@@ -451,20 +573,51 @@ tls_config:
 
 #### `<oauth2>`
 
-OAuth 2.0 authentication using the client credentials grant type. Blackbox
-exporter fetches an access token from the specified endpoint with the given
-client access and secret keys.
+OAuth 2.0 authentication using the client credentials grant type, or the JWT
+bearer grant type (RFC 7523). Blackbox exporter fetches an access token from
+the specified endpoint with the given client access and secret keys, or with a
+JWT signed by the given private key.
 
 NOTE: This is *experimental* in the blackbox exporter and might not be
 reflected properly in the probe metrics at the moment.
 
 ```yml
 client_id: <string>
+
+# The OAuth2 grant type. One of `client_credentials` or
+# `urn:ietf:params:oauth:grant-type:jwt-bearer`.
+[ grant_type: <string> | default = "client_credentials" ]
+
+# Used with the `client_credentials` grant type.
 [ client_secret: <secret> ]
 
 # Read the client secret from a file.
 # It is mutually exclusive with `client_secret`.
 [ client_secret_file: <filename> ]
+
+# Used with the `urn:ietf:params:oauth:grant-type:jwt-bearer` grant type.
+# The PEM-encoded RSA private key used to sign the JWT assertion.
+[ client_certificate_key: <secret> ]
+
+# Read the private key from a file.
+# It is mutually exclusive with `client_certificate_key`.
+[ client_certificate_key_file: <filename> ]
+
+# Optional key ID, sent as the `kid` header of the JWT.
+[ client_certificate_key_id: <string> ]
+
+# The algorithm used to sign the JWT. One of RS256, RS384 or RS512.
+[ signature_algorithm: <string> | default = "RS256" ]
+
+# The `iss` claim of the JWT. Defaults to `client_id`.
+[ iss: <string> ]
+
+# The `aud` claim of the JWT. Defaults to `token_url`.
+[ audience: <string> ]
+
+# Extra claims added to the JWT.
+claims:
+  [ <string>: <value> ... ]
 
 # Scopes for the token request.
 scopes:
@@ -476,4 +629,9 @@ token_url: <string>
 # Optional parameters to append to the token URL.
 endpoint_params:
   [ <string>: <string> ... ]
+
+# Configures the token request's TLS settings, for example a client
+# certificate for IdPs that authenticate the client with mutual TLS.
+tls_config:
+  [ <tls_config> ]
 ```

@@ -26,16 +26,17 @@ import (
 	"strings"
 
 	"github.com/jmespath/go-jmespath"
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 // jsonrpcGenericReq is a generic JSON-RPC 2.0 request (params can be array or object).
 type jsonrpcGenericReq struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params"`
-	ID      int         `json:"id"`
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  any    `json:"params"`
+	ID      int    `json:"id"`
 }
 
 // jsonrpcGenericResp is a generic JSON-RPC 2.0 response.
@@ -50,7 +51,7 @@ type jsonrpcGenericResp struct {
 }
 
 // jsonrpcPost performs a single JSON-RPC POST and returns the raw result.
-func jsonrpcPost(ctx context.Context, rpcURL string, method string, params interface{}) (json.RawMessage, error) {
+func jsonrpcPost(ctx context.Context, rpcURL, method string, params any) (json.RawMessage, error) {
 	body, err := json.Marshal(&jsonrpcGenericReq{JSONRPC: "2.0", Method: method, Params: params, ID: 1})
 	if err != nil {
 		return nil, err
@@ -84,7 +85,7 @@ func jsonrpcPost(ctx context.Context, rpcURL string, method string, params inter
 
 // jmesPathValue applies resultJMESPath to result (unmarshaled from response.result) and returns a float64 for the metric.
 // resultJMESPath: "" or "@" means use the whole result (must be number or numeric string).
-func jmesPathValue(result interface{}, resultJMESPath string) (float64, error) {
+func jmesPathValue(result any, resultJMESPath string) (float64, error) {
 	if resultJMESPath != "" && resultJMESPath != "@" {
 		search, err := jmespath.Compile(resultJMESPath)
 		if err != nil {
@@ -98,7 +99,7 @@ func jmesPathValue(result interface{}, resultJMESPath string) (float64, error) {
 	return toFloat64(result)
 }
 
-func toFloat64(v interface{}) (float64, error) {
+func toFloat64(v any) (float64, error) {
 	if v == nil {
 		return 0, fmt.Errorf("result is nil")
 	}
@@ -186,7 +187,7 @@ func ProbeJsonrpc(ctx context.Context, target string, module config.Module, regi
 	}, []string{"url", "method", "result_jmespath"})
 	registry.MustRegister(gauge)
 
-	for i := 0; i < len(methods); i++ {
+	for i := range methods {
 		method := strings.TrimSpace(methods[i])
 		if method == "" {
 			continue
@@ -195,7 +196,7 @@ func ProbeJsonrpc(ctx context.Context, target string, module config.Module, regi
 		if paramsStr == "" {
 			paramsStr = "[]"
 		}
-		var rpcParams interface{}
+		var rpcParams any
 		if err := json.Unmarshal([]byte(paramsStr), &rpcParams); err != nil {
 			logger.Error("jsonrpc: invalid rpcParams", "method", method, "err", err)
 			continue
@@ -214,7 +215,7 @@ func ProbeJsonrpc(ctx context.Context, target string, module config.Module, regi
 			logger.Error("jsonrpc: call failed", "method", method, "url", rpcURL, "err", err)
 			continue
 		}
-		var result interface{}
+		var result any
 		if err := json.Unmarshal(rawResult, &result); err != nil {
 			logger.Error("jsonrpc: result unmarshal failed", "method", method, "err", err)
 			continue
