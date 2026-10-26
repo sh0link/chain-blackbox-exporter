@@ -47,7 +47,7 @@ var Probers = map[string]ProbeFn{
 	"erc20balance":  ProbeErc20Balance,
 	"contract_call": ProbeContractCall,
 	"jsonrpc":       ProbeJsonrpc,
-	"http_json":     ProbeHttpJson,
+	"http_json":     ProbeHTTPJSON,
 }
 
 func Handler(w http.ResponseWriter, r *http.Request, c *config.Config, logger *slog.Logger, rh *ResultHistory, timeoutOffset float64, params url.Values,

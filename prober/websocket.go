@@ -31,7 +31,7 @@ import (
 	"github.com/prometheus/blackbox_exporter/config"
 )
 
-func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) (success bool) {
+func ProbeWebsocket(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, _ url.Values) (success bool) {
 	targetURL, err := url.Parse(target)
 	if err != nil {
 		logger.Error("Could not parse target URL", "err", err)

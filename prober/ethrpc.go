@@ -26,19 +26,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/sha3"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 // getEthrpcClient is provided by rpcclient.go; uses http_proxy/https_proxy and shared timeout config.
 
 // jsonrpcReq is a single JSON-RPC 2.0 request.
 type jsonrpcReq struct {
-	JSONRPC string        `json:"jsonrpc"`
-	Method  string        `json:"method"`
-	Params  []interface{} `json:"params"`
-	ID      int           `json:"id"`
+	JSONRPC string `json:"jsonrpc"`
+	Method  string `json:"method"`
+	Params  []any  `json:"params"`
+	ID      int    `json:"id"`
 }
 
 // jsonrpcResp is a single JSON-RPC 2.0 response.
@@ -107,7 +108,7 @@ func (r *jsonrpcResp) resultUint64() (uint64, error) {
 }
 
 // ethCall performs a single JSON-RPC call.
-func ethCall(ctx context.Context, rpcURL string, method string, params []interface{}) (*jsonrpcResp, error) {
+func ethCall(ctx context.Context, rpcURL, method string, params []any) (*jsonrpcResp, error) {
 	body, err := json.Marshal(&jsonrpcReq{JSONRPC: "2.0", Method: method, Params: params, ID: 1})
 	if err != nil {
 		return nil, err
@@ -192,7 +193,7 @@ func normalizeRPCURL(target string) string {
 }
 
 // ProbeChainInfo gets latest/safe/finalized block numbers and chainId for one RPC URL (target).
-func ProbeChainInfo(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, params url.Values) bool {
+func ProbeChainInfo(ctx context.Context, target string, module config.Module, registry *prometheus.Registry, logger *slog.Logger, _ url.Values) bool {
 	_ = module
 	rpcURL := normalizeRPCURL(target)
 
@@ -229,7 +230,7 @@ func ProbeChainInfo(ctx context.Context, target string, module config.Module, re
 
 	// Safe and finalized: eth_getBlockByNumber("safe"/"finalized", false) - optional
 	for _, state := range []string{"safe", "finalized"} {
-		resp, err := ethCall(ctx, rpcURL, "eth_getBlockByNumber", []interface{}{state, false})
+		resp, err := ethCall(ctx, rpcURL, "eth_getBlockByNumber", []any{state, false})
 		if err != nil {
 			logger.Debug("eth_getBlockByNumber failed (optional)", "state", state, "err", err)
 			blockGauge.WithLabelValues(rpcURL, chainIDStr, state).Set(0)
@@ -338,8 +339,8 @@ func ProbeBalance(ctx context.Context, target string, module config.Module, regi
 	if useBatch {
 		var calls []jsonrpcReq
 		for _, a := range accounts {
-			calls = append(calls, jsonrpcReq{Method: "eth_getBalance", Params: []interface{}{a[1], "latest"}})
-			calls = append(calls, jsonrpcReq{Method: "eth_getTransactionCount", Params: []interface{}{a[1], "latest"}})
+			calls = append(calls, jsonrpcReq{Method: "eth_getBalance", Params: []any{a[1], "latest"}})
+			calls = append(calls, jsonrpcReq{Method: "eth_getTransactionCount", Params: []any{a[1], "latest"}})
 		}
 		reqs := make([]jsonrpcReq, len(calls))
 		copy(reqs, calls)
@@ -366,7 +367,7 @@ func ProbeBalance(ctx context.Context, target string, module config.Module, regi
 		}
 	} else {
 		for _, a := range accounts {
-			balResp, err := ethCall(ctx, rpcURL, "eth_getBalance", []interface{}{a[1], "latest"})
+			balResp, err := ethCall(ctx, rpcURL, "eth_getBalance", []any{a[1], "latest"})
 			if err != nil {
 				logger.Error("eth_getBalance failed", "account", a[0], "err", err)
 				continue
@@ -378,7 +379,7 @@ func ProbeBalance(ctx context.Context, target string, module config.Module, regi
 			}
 			balanceGauge.WithLabelValues(rpcURL, chainIDStr, a[0], a[1]).Set(weiToEther(bal))
 
-			nonceResp, err := ethCall(ctx, rpcURL, "eth_getTransactionCount", []interface{}{a[1], "latest"})
+			nonceResp, err := ethCall(ctx, rpcURL, "eth_getTransactionCount", []any{a[1], "latest"})
 			if err != nil {
 				logger.Error("eth_getTransactionCount failed", "account", a[0], "err", err)
 				continue
@@ -506,7 +507,7 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 	if useBatch {
 		var decCalls []jsonrpcReq
 		for _, tokenAddr := range uniqueTokens {
-			decCalls = append(decCalls, jsonrpcReq{Method: "eth_call", Params: []interface{}{
+			decCalls = append(decCalls, jsonrpcReq{Method: "eth_call", Params: []any{
 				map[string]string{"to": tokenAddr, "data": decimalsData},
 				"latest",
 			}})
@@ -522,7 +523,7 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 		}
 	} else {
 		for _, tokenAddr := range uniqueTokens {
-			resp, err := ethCall(ctx, rpcURL, "eth_call", []interface{}{
+			resp, err := ethCall(ctx, rpcURL, "eth_call", []any{
 				map[string]string{"to": tokenAddr, "data": decimalsData},
 				"latest",
 			})
@@ -537,11 +538,11 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 		var calls []jsonrpcReq
 		for _, c := range toCallList {
 			balData, _ := erc20BalanceOfData(c.accountAddress)
-			calls = append(calls, jsonrpcReq{Method: "eth_call", Params: []interface{}{
+			calls = append(calls, jsonrpcReq{Method: "eth_call", Params: []any{
 				map[string]string{"to": c.token, "data": balData},
 				"latest",
 			}})
-			calls = append(calls, jsonrpcReq{Method: "eth_call", Params: []interface{}{
+			calls = append(calls, jsonrpcReq{Method: "eth_call", Params: []any{
 				map[string]string{"to": c.token, "data": symbolData},
 				"latest",
 			}})
@@ -564,7 +565,7 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 	} else {
 		for _, c := range toCallList {
 			balData, _ := erc20BalanceOfData(c.accountAddress)
-			balResp, err := ethCall(ctx, rpcURL, "eth_call", []interface{}{
+			balResp, err := ethCall(ctx, rpcURL, "eth_call", []any{
 				map[string]string{"to": c.token, "data": balData},
 				"latest",
 			})
@@ -576,7 +577,7 @@ func ProbeErc20Balance(ctx context.Context, target string, module config.Module,
 			if err != nil {
 				continue
 			}
-			symResp, err := ethCall(ctx, rpcURL, "eth_call", []interface{}{
+			symResp, err := ethCall(ctx, rpcURL, "eth_call", []any{
 				map[string]string{"to": c.token, "data": symbolData},
 				"latest",
 			})
@@ -643,7 +644,7 @@ func decodeStringBytesHex(hexStr string) string {
 
 // contract call spec: "contractName:contractAddress|methodSig|params|returnName:returnIndex|decimal"
 // contractName and returnName are optional (for metric labels); omit the colon to use address/index only.
-func parseCallSpec(s string) (contractAddr, contractName, methodSig, paramsStr, returnName string, returnIndex int, decimal int, err error) {
+func parseCallSpec(s string) (contractAddr, contractName, methodSig, paramsStr, returnName string, returnIndex, decimal int, err error) {
 	parts := strings.Split(s, "|")
 	if len(parts) < 5 {
 		err = fmt.Errorf("call spec must have 5 parts: contractName:address|methodSig|params|returnName:returnIndex|decimal")
@@ -651,9 +652,9 @@ func parseCallSpec(s string) (contractAddr, contractName, methodSig, paramsStr, 
 	}
 	// Part 0: contractName:address or address
 	part0 := strings.TrimSpace(parts[0])
-	if idx := strings.Index(part0, ":"); idx >= 0 {
-		contractName = strings.TrimSpace(part0[:idx])
-		contractAddr = strings.TrimSpace(part0[idx+1:])
+	if before, after, ok := strings.Cut(part0, ":"); ok {
+		contractName = strings.TrimSpace(before)
+		contractAddr = strings.TrimSpace(after)
 	} else {
 		contractAddr = part0
 	}
@@ -686,7 +687,7 @@ func encodeCallData(methodSig, paramsStr string) (string, error) {
 		return "0x" + selector, nil
 	}
 	var encoded []string
-	params := strings.Split(paramsStr, ",")
+	params := strings.SplitSeq(paramsStr, ",")
 	// Infer types from common patterns:
 	//   0x + 40 hex chars -> address (left-padded to 32 bytes)
 	//   0x + 64 hex chars -> bytes32 (already 32 bytes, used as-is)
@@ -696,10 +697,10 @@ func encodeCallData(methodSig, paramsStr string) (string, error) {
 	// keccak256(abi.encode(...)) hashes passed to getUint/getBool/getBytes32Count.
 	// Without this branch such params fell into the address case and failed with
 	// "invalid address length" (64 != 40).
-	for _, p := range params {
+	for p := range params {
 		p = strings.TrimSpace(p)
-		if strings.HasPrefix(p, "0x") {
-			hexBody := strings.TrimPrefix(p, "0x")
+		if after, ok := strings.CutPrefix(p, "0x"); ok {
+			hexBody := after
 			if len(hexBody) == 64 {
 				if _, ok := new(big.Int).SetString(hexBody, 16); !ok {
 					return "", fmt.Errorf("invalid bytes32 param: %s", p)
@@ -822,7 +823,7 @@ func ProbeContractCall(ctx context.Context, target string, module config.Module,
 			logger.Error("encode call data failed", "method", methodSig, "err", err)
 			continue
 		}
-		resp, err := ethCall(ctx, rpcURL, "eth_call", []interface{}{
+		resp, err := ethCall(ctx, rpcURL, "eth_call", []any{
 			map[string]string{"to": contractAddr, "data": data},
 			"latest",
 		})

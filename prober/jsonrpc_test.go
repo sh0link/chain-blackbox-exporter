@@ -23,15 +23,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/promslog"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 func TestToFloat64(t *testing.T) {
 	tests := []struct {
 		name    string
-		v       interface{}
+		v       any
 		want    float64
 		wantErr bool
 	}{
@@ -67,19 +68,19 @@ func TestToFloat64(t *testing.T) {
 func TestJmesPathValue(t *testing.T) {
 	tests := []struct {
 		name           string
-		result         interface{}
+		result         any
 		resultJMESPath string
 		want           float64
 		wantErr        bool
 	}{
 		{"whole result number", float64(100), "", 100, false},
 		{"whole result with @", float64(200), "@", 200, false},
-		{"jmespath field", map[string]interface{}{"height": float64(12345)}, "height", 12345, false},
-		{"jmespath nested", map[string]interface{}{"data": map[string]interface{}{"block": float64(99)}}, "data.block", 99, false},
-		{"jmespath array index", []interface{}{float64(10), float64(20)}, "[1]", 20, false},
+		{"jmespath field", map[string]any{"height": float64(12345)}, "height", 12345, false},
+		{"jmespath nested", map[string]any{"data": map[string]any{"block": float64(99)}}, "data.block", 99, false},
+		{"jmespath array index", []any{float64(10), float64(20)}, "[1]", 20, false},
 		{"result nil", nil, "@", 0, true},
-		{"jmespath invalid expr", map[string]interface{}{"x": 1}, "[invalid", 0, true},
-		{"jmespath no match", map[string]interface{}{"a": 1}, "missing", 0, true},
+		{"jmespath invalid expr", map[string]any{"x": 1}, "[invalid", 0, true},
+		{"jmespath no match", map[string]any{"a": 1}, "missing", 0, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,7 +119,7 @@ func TestNormalizeRPCURLForJsonrpc(t *testing.T) {
 
 // mockJsonrpcServer returns a server that responds to JSON-RPC 2.0 POST with configurable result.
 // errCode/errMsg: if errCode != 0, response contains JSON-RPC error.
-func mockJsonrpcServer(t *testing.T, result interface{}, errCode int, errMsg string) *httptest.Server {
+func mockJsonrpcServer(t *testing.T, result any, errCode int, errMsg string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -204,7 +205,7 @@ func TestProbeJsonrpc(t *testing.T) {
 	})
 
 	t.Run("single_call_value", func(t *testing.T) {
-		srv := mockJsonrpcServer(t, map[string]interface{}{"height": float64(250000)}, 0, "")
+		srv := mockJsonrpcServer(t, map[string]any{"height": float64(250000)}, 0, "")
 		defer srv.Close()
 
 		params := url.Values{
@@ -336,7 +337,7 @@ func TestProbeJsonrpc_MultipleCalls(t *testing.T) {
 		var req jsonrpcGenericReq
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		callCount++
-		var res interface{} = float64(100)
+		var res any = float64(100)
 		if callCount == 2 {
 			res = float64(200)
 		}
