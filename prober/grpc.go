@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/blackbox_exporter/config"
 	"github.com/prometheus/client_golang/prometheus"
 	pconfig "github.com/prometheus/common/config"
 	"google.golang.org/grpc"
@@ -32,6 +31,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/prometheus/blackbox_exporter/config"
 )
 
 type GRPCHealthCheck interface {
@@ -185,14 +186,14 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 	}
 
 	conn, err := grpc.NewClient(target, opts...)
-
 	if err != nil {
 		logger.Error("did not connect", "err", err)
+		return false
 	}
 
 	client := NewGrpcHealthCheckClient(conn)
 	defer conn.Close()
-	ok, statusCode, serverPeer, servingStatus, err := client.Check(context.Background(), module.GRPC.Service, md)
+	ok, statusCode, serverPeer, servingStatus, err := client.Check(ctx, module.GRPC.Service, md)
 	durationGaugeVec.WithLabelValues("check").Add(time.Since(checkStart).Seconds())
 
 	for servingStatusName := range grpc_health_v1.HealthCheckResponse_ServingStatus_value {
@@ -210,6 +211,7 @@ func ProbeGRPC(ctx context.Context, target string, module config.Module, registr
 			probeSSLEarliestCertExpiryGauge.Set(float64(getEarliestCertExpiry(&tlsInfo.State).Unix()))
 			probeTLSVersion.WithLabelValues(getTLSVersion(&tlsInfo.State)).Set(1)
 			probeSSLLastInformation.WithLabelValues(getFingerprint(&tlsInfo.State), getSubject(&tlsInfo.State), getIssuer(&tlsInfo.State), getDNSNames(&tlsInfo.State), getSerialNumber(&tlsInfo.State)).Set(1)
+			checkCRL(ctx, &tlsInfo.State, module.GRPC.CheckRevoked, nil, registry, logger)
 		} else {
 			isSSLGauge.Set(float64(0))
 		}

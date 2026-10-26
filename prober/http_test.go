@@ -66,7 +66,7 @@ func TestHTTPStatusCodes(t *testing.T) {
 		{200, []int{404}, false},
 	}
 	for i, test := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(test.StatusCode)
 		}))
 		defer ts.Close()
@@ -96,7 +96,7 @@ func TestValidHTTPVersion(t *testing.T) {
 		{[]string{"HTTP/3.0"}, false},
 	}
 	for i, test := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		}))
 		defer ts.Close()
 		recorder := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestContentLength(t *testing.T) {
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Add("Content-Encoding", "identity")
 				w.WriteHeader(http.StatusOK)
 				w.Write(testmsg)
@@ -150,7 +150,7 @@ func TestContentLength(t *testing.T) {
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				w.Write(testmsg)
 			},
@@ -161,7 +161,7 @@ func TestContentLength(t *testing.T) {
 			msg:                    testmsg,
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Add("Content-Encoding", "xxx")
 				w.WriteHeader(http.StatusOK)
 				w.Write(bytes.Repeat([]byte{'x'}, len(testmsg)))
@@ -174,7 +174,7 @@ func TestContentLength(t *testing.T) {
 			msg:                    notfoundMsg,
 			contentLength:          len(notfoundMsg),
 			uncompressedBodyLength: len(notfoundMsg),
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				// Send something in the body to make sure that this get reported as the content length.
 				w.Write(notfoundMsg)
@@ -192,7 +192,7 @@ func TestContentLength(t *testing.T) {
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "br")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -212,7 +212,7 @@ func TestContentLength(t *testing.T) {
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "deflate")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -231,7 +231,7 @@ func TestContentLength(t *testing.T) {
 				msg:                    msg,
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(buf.Bytes()), // No decompression.
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -304,7 +304,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			return testdata{
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -325,7 +325,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			return testdata{
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "br")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -347,7 +347,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 			return testdata{
 				contentLength:          len(buf.Bytes()), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "deflate")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -362,7 +362,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 		"identity": {
 			contentLength:          len(testmsg),
 			uncompressedBodyLength: len(testmsg),
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Add("Content-Encoding", "identity")
 				w.WriteHeader(http.StatusOK)
 				w.Write(testmsg)
@@ -386,7 +386,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				expectFailure:          true,
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: 0,
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -408,7 +408,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				expectFailure:          false,
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -433,7 +433,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				expectFailure:          false,
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -458,7 +458,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				expectFailure:          false,
 				contentLength:          buf.Len(), // Content length is the length of the compressed buffer.
 				uncompressedBodyLength: len(msg),
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -483,7 +483,7 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 				expectFailure:          false,
 				contentLength:          buf.Len(),
 				uncompressedBodyLength: buf.Len(), // content won't be uncompressed
-				handler: func(w http.ResponseWriter, r *http.Request) {
+				handler: func(w http.ResponseWriter, _ *http.Request) {
 					w.Header().Add("Content-Encoding", "gzip")
 					w.WriteHeader(http.StatusOK)
 					w.Write(buf.Bytes())
@@ -535,16 +535,16 @@ func TestHandlingOfCompressionSetting(t *testing.T) {
 }
 
 func TestMaxResponseLength(t *testing.T) {
-	const max = 128
+	const maxLength = 128
 
 	var shortGzippedPayload bytes.Buffer
 	enc := gzip.NewWriter(&shortGzippedPayload)
-	enc.Write(bytes.Repeat([]byte{'A'}, max-1))
+	enc.Write(bytes.Repeat([]byte{'A'}, maxLength-1))
 	enc.Close()
 
 	var longGzippedPayload bytes.Buffer
 	enc = gzip.NewWriter(&longGzippedPayload)
-	enc.Write(bytes.Repeat([]byte{'A'}, max+1))
+	enc.Write(bytes.Repeat([]byte{'A'}, maxLength+1))
 	enc.Close()
 
 	testcases := map[string]struct {
@@ -556,15 +556,15 @@ func TestMaxResponseLength(t *testing.T) {
 		"short": {
 			target: "/short",
 			expectedMetrics: map[string]float64{
-				"probe_http_uncompressed_body_length": float64(max - 1),
-				"probe_http_content_length":           float64(max - 1),
+				"probe_http_uncompressed_body_length": float64(maxLength - 1),
+				"probe_http_content_length":           float64(maxLength - 1),
 			},
 		},
 		"long": {
 			target:        "/long",
 			expectFailure: true,
 			expectedMetrics: map[string]float64{
-				"probe_http_content_length": float64(max + 1),
+				"probe_http_content_length": float64(maxLength + 1),
 			},
 		},
 		"short compressed": {
@@ -572,7 +572,7 @@ func TestMaxResponseLength(t *testing.T) {
 			compression: "gzip",
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length":           float64(shortGzippedPayload.Len()),
-				"probe_http_uncompressed_body_length": float64(max - 1),
+				"probe_http_uncompressed_body_length": float64(maxLength - 1),
 			},
 		},
 		"long compressed": {
@@ -581,7 +581,7 @@ func TestMaxResponseLength(t *testing.T) {
 			expectFailure: true,
 			expectedMetrics: map[string]float64{
 				"probe_http_content_length":           float64(longGzippedPayload.Len()),
-				"probe_http_uncompressed_body_length": max, // it should stop decompressing at max bytes
+				"probe_http_uncompressed_body_length": maxLength, // it should stop decompressing at maxLength bytes
 			},
 		},
 	}
@@ -599,10 +599,10 @@ func TestMaxResponseLength(t *testing.T) {
 			w.Header().Add("Content-Encoding", "gzip")
 
 		case "/long":
-			resp = bytes.Repeat([]byte{'A'}, max+1)
+			resp = bytes.Repeat([]byte{'A'}, maxLength+1)
 
 		case "/short":
-			resp = bytes.Repeat([]byte{'A'}, max-1)
+			resp = bytes.Repeat([]byte{'A'}, maxLength-1)
 
 		default:
 			w.WriteHeader(http.StatusBadRequest)
@@ -628,7 +628,7 @@ func TestMaxResponseLength(t *testing.T) {
 					Timeout: time.Second,
 					HTTP: config.HTTPProbe{
 						IPProtocolFallback: true,
-						BodySizeLimit:      max,
+						BodySizeLimit:      maxLength,
 						HTTPClientConfig:   pconfig.DefaultHTTPClientConfig,
 						Compression:        tc.compression,
 					},
@@ -701,7 +701,6 @@ func TestRedirectNotFollowed(t *testing.T) {
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly, got %s", body)
 	}
-
 }
 
 // TestRedirectionLimit verifies that the probe stops following
@@ -787,7 +786,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestBasicAuth(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -810,7 +809,7 @@ func TestBasicAuth(t *testing.T) {
 }
 
 func TestBearerToken(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -832,7 +831,7 @@ func TestBearerToken(t *testing.T) {
 }
 
 func TestFailIfNotSSL(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -865,7 +864,7 @@ func (lr *logRecorder) Enabled(ctx context.Context, level slog.Level) bool {
 	return lr.next.Enabled(ctx, level)
 }
 
-func (lr *logRecorder) Handle(ctx context.Context, r slog.Record) error {
+func (lr *logRecorder) Handle(_ context.Context, r slog.Record) error {
 	if lr.msgs == nil {
 		lr.msgs = make(map[string]bool)
 	}
@@ -890,7 +889,9 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		Timeout = time.Second * 10
 	)
 
-	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	logger := promslog.New(&promslog.Config{Writer: io.Discard})
+
+	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer goodServer.Close()
@@ -938,7 +939,7 @@ func TestFailIfNotSSLLogMsg(t *testing.T) {
 		},
 	} {
 		t.Run(title, func(t *testing.T) {
-			recorder := logRecorder{next: promslog.NewNopLogger()}
+			recorder := logRecorder{next: logger}
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), Timeout)
 			defer cancel()
@@ -1024,7 +1025,7 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
@@ -1035,7 +1036,7 @@ func TestFailIfBodyMatchesCEL(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJsonMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger(), nil)
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger(), nil)
 			if testcase.expectedResult && !result {
 				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
 			} else if !testcase.expectedResult && result {
@@ -1131,7 +1132,7 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
@@ -1142,7 +1143,7 @@ func TestFailIfBodyNotMatchesCEL(t *testing.T) {
 			registry := prometheus.NewRegistry()
 			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJsonNotMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger(), nil)
+			result := ProbeHTTP(testCTX, ts.URL, config.Module{Timeout: time.Second, HTTP: config.HTTPProbe{IPProtocolFallback: true, FailIfBodyJSONNotMatchesCEL: &celProgram}}, registry, promslog.NewNopLogger(), nil)
 			if testcase.expectedResult && !result {
 				t.Fatalf("CEL test failed unexpectedly, got %s", recorder.Body.String())
 			} else if !testcase.expectedResult && result {
@@ -1199,7 +1200,7 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 
 	for name, testcase := range testcases {
 		t.Run(name, func(t *testing.T) {
-			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				io.WriteString(w, testcase.respBody)
 			}))
 			defer ts.Close()
@@ -1235,7 +1236,7 @@ func TestFailIfBodyMatchesRegexp(t *testing.T) {
 }
 
 func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "Bad news: could not connect to database server")
 	}))
 	defer ts.Close()
@@ -1251,7 +1252,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
 	}
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "Download the latest version here")
 	}))
 	defer ts.Close()
@@ -1267,7 +1268,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 
 	// With multiple regexps configured, verify that any non-matching regexp
 	// causes the probe to fail, but probes succeed when all regexps match.
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "Download the latest version here")
 	}))
 	defer ts.Close()
@@ -1281,7 +1282,7 @@ func TestFailIfBodyNotMatchesRegexp(t *testing.T) {
 		t.Fatalf("Regexp test succeeded unexpectedly, got %s", body)
 	}
 
-	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "Download the latest version here. Copyright 2015 Test Inc.")
 	}))
 	defer ts.Close()
@@ -1302,19 +1303,19 @@ func TestFailIfHeaderMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{""}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{Header: "content-type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{""}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{""}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{}, true},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, false},
 	}
 
 	for i, test := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			for _, val := range test.Values {
 				w.Header().Add(test.Rule.Header, val)
 			}
@@ -1351,18 +1352,18 @@ func TestFailIfHeaderNotMatchesRegexp(t *testing.T) {
 		Values        []string
 		ShouldSucceed bool
 	}{
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"content-type", config.MustNewRegexp("text/javascript"), false}, []string{"text/javascript"}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp("text/javascript"), false}, []string{"application/octet-stream"}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{""}, true},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), false}, []string{}, false},
-		{config.HeaderMatch{"Content-Type", config.MustNewRegexp(".*"), true}, []string{}, true},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
-		{config.HeaderMatch{"Set-Cookie", config.MustNewRegexp(".*Domain=\\.example\\.com.*"), false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{Header: "content-type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"text/javascript"}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp("text/javascript"), AllowMissing: false}, []string{"application/octet-stream"}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{""}, true},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: false}, []string{}, false},
+		{config.HeaderMatch{Header: "Content-Type", Regexp: config.MustNewRegexp(".*"), AllowMissing: true}, []string{}, true},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/"}, false},
+		{config.HeaderMatch{Header: "Set-Cookie", Regexp: config.MustNewRegexp(".*Domain=\\.example\\.com.*"), AllowMissing: false}, []string{"zz=4; expires=Mon, 01-Jan-1990 00:00:00 GMT; Domain=www.example.com; Path=/", "gid=1; Expires=Tue, 19-Mar-2019 20:08:29 GMT; Domain=.example.com; Path=/"}, true},
 	}
 
 	for i, test := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			for _, val := range test.Values {
 				w.Header().Add(test.Rule.Header, val)
 			}
@@ -1427,7 +1428,7 @@ func TestHTTPHeaders(t *testing.T) {
 }
 
 func TestFailIfSelfSignedCA(t *testing.T) {
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -1457,7 +1458,7 @@ func TestFailIfSelfSignedCA(t *testing.T) {
 }
 
 func TestSucceedIfSelfSignedCA(t *testing.T) {
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -1487,7 +1488,7 @@ func TestSucceedIfSelfSignedCA(t *testing.T) {
 }
 
 func TestTLSConfigIsIgnoredForPlainHTTP(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -1542,7 +1543,7 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 		panic(fmt.Sprintf("Failed to decode TLS testing keypair: %s\n", err))
 	}
 
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	ts.TLS = &tls.Config{
 		Certificates: []tls.Certificate{testcert},
@@ -1574,6 +1575,63 @@ func TestHTTPUsesTargetAsTLSServerName(t *testing.T) {
 	}
 }
 
+func TestHTTPCRLUnreachableReportsUnavailable(t *testing.T) {
+	// CRL responder that hangs until the probe context is cancelled,
+	// reproducing a "context deadline exceeded" during the CRL fetch.
+	crlServer := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer crlServer.Close()
+
+	// HTTPS server whose leaf cert points its CRL distribution point at the
+	// hanging responder.
+	ca, caKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test CA", Serial: 1, IsCA: true}, nil, nil)
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 1234, CRLURL: crlServer.URL}, ca, caKey)
+	serverCert := tls.Certificate{
+		Certificate: [][]byte{leaf.Raw, ca.Raw},
+		PrivateKey:  leafKey,
+	}
+
+	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	ts.TLS = &tls.Config{Certificates: []tls.Certificate{serverCert}}
+	ts.StartTLS()
+	defer ts.Close()
+
+	registry := prometheus.NewRegistry()
+	module := config.Module{
+		Timeout: time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			CheckRevoked:       true,
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}
+
+	// Short probe deadline so the hanging CRL fetch is cancelled by the probe
+	// context — mirroring the production scrape-timeout case.
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	result := ProbeHTTP(ctx, ts.URL, module, registry, promslog.NewNopLogger(), nil)
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"})
+	if !ok {
+		t.Fatal("probe_ssl_crl_available is missing after CRL fetch timeout — expected it present with value 0")
+	}
+	if val != 0 {
+		t.Errorf("Expected probe_ssl_crl_available=0 on CRL timeout, got %v", val)
+	}
+	t.Logf("probe success=%v, probe_ssl_crl_available=%v", result, val)
+}
+
 func TestRedirectToTLSHostWorks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network dependent test")
@@ -1592,11 +1650,10 @@ func TestRedirectToTLSHostWorks(t *testing.T) {
 	if !result {
 		t.Fatalf("Redirect test failed unexpectedly")
 	}
-
 }
 
 func TestHTTPPhases(t *testing.T) {
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 	}))
 	defer ts.Close()
 
@@ -1679,7 +1736,7 @@ func TestSkipResolvePhase(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping network dependent test")
 	}
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer ts.Close()
@@ -1796,7 +1853,7 @@ func TestBody(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 			b, err := io.ReadAll(r.Body)
 			if err != nil {
 				t.Fatalf("Body test %d failed unexpectedly.", i)
@@ -1815,7 +1872,8 @@ func TestBody(t *testing.T) {
 			ts.URL,
 			config.Module{
 				Timeout: time.Second,
-				HTTP:    test},
+				HTTP:    test,
+			},
 			registry,
 			promslog.NewNopLogger(),
 			nil,
@@ -1823,6 +1881,97 @@ func TestBody(t *testing.T) {
 		if !result {
 			t.Fatalf("Body test %d failed unexpectedly.", i)
 		}
+	}
+}
+
+func TestHTTPParsingScheme(t *testing.T) {
+	type serverCreator func(http.Handler) *httptest.Server
+
+	testcases := map[string]struct {
+		target          string
+		serverCreator   serverCreator
+		configHTTPProbe config.HTTPProbe
+		expectSuccess   bool
+	}{
+		"lowercase http scheme": {
+			target:          "http://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"lowercase https scheme": {
+			target:        "https://example.com",
+			serverCreator: httptest.NewTLSServer,
+			configHTTPProbe: config.HTTPProbe{
+				IPProtocolFallback: true,
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+			expectSuccess: true,
+		},
+		"uppercase http scheme": {
+			target:          "HTTP://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"mixed case https scheme": {
+			target:        "HtTpS://example.com",
+			serverCreator: httptest.NewTLSServer,
+			configHTTPProbe: config.HTTPProbe{
+				IPProtocolFallback: true,
+				HTTPClientConfig: pconfig.HTTPClientConfig{
+					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+				},
+			},
+			expectSuccess: true,
+		},
+		"missing scheme": {
+			target:          "example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   true,
+		},
+		"invalid scheme": {
+			target:          "invalid://example.com",
+			serverCreator:   httptest.NewServer,
+			configHTTPProbe: config.HTTPProbe{IPProtocolFallback: true},
+			expectSuccess:   false,
+		},
+	}
+
+	for name, tc := range testcases {
+		t.Run(name, func(t *testing.T) {
+			ts := tc.serverCreator(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer ts.Close()
+
+			// Replace the host inside url to the local test server address
+			target := strings.Replace(tc.target, "example.com", ts.Listener.Addr().String(), 1)
+
+			registry := prometheus.NewRegistry()
+			testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			result := ProbeHTTP(
+				testCTX,
+				target,
+				config.Module{
+					Timeout: time.Second,
+					HTTP:    tc.configHTTPProbe,
+				},
+
+				registry,
+				promslog.NewNopLogger(),
+				nil,
+			)
+
+			if result != tc.expectSuccess {
+				t.Fatalf("Test %q: expected success: %v, got: %v", name, tc.expectSuccess, result)
+			}
+		})
 	}
 }
 
@@ -1880,7 +2029,8 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 	defer cancel()
 
 	result := ProbeHTTP(testCTX, serverURL,
-		config.Module{Timeout: 5 * time.Second,
+		config.Module{
+			Timeout: 5 * time.Second,
 			HTTP: config.HTTPProbe{
 				IPProtocolFallback: true,
 				UseHTTP3:           true,
@@ -1888,7 +2038,8 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 				HTTPClientConfig: pconfig.HTTPClientConfig{
 					TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
 				},
-			}}, registry, promslog.NewNopLogger(), nil)
+			},
+		}, registry, promslog.NewNopLogger(), nil)
 
 	if !result {
 		t.Fatalf("HTTP/3 QUIC probe failed unexpectedly")
@@ -1904,6 +2055,33 @@ func TestHTTP3ProbeQUIC(t *testing.T) {
 		"probe_http_version":     3,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+}
+
+func TestHTTP3ProbeQUICMixedCaseHTTPScheme(t *testing.T) {
+	s, serverURL := setupHTTP3Server(t)
+	defer s.Close()
+
+	target := "HtTp://" + strings.TrimPrefix(serverURL, "https://")
+
+	registry := prometheus.NewRegistry()
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result := ProbeHTTP(testCTX, target, config.Module{
+		Timeout: 5 * time.Second,
+		HTTP: config.HTTPProbe{
+			IPProtocolFallback: true,
+			UseHTTP3:           true,
+			ValidHTTPVersions:  []string{"HTTP/3.0"},
+			HTTPClientConfig: pconfig.HTTPClientConfig{
+				TLSConfig: pconfig.TLSConfig{InsecureSkipVerify: true},
+			},
+		},
+	}, registry, promslog.NewNopLogger(), nil)
+
+	if !result {
+		t.Fatalf("HTTP/3 QUIC probe with mixed-case http scheme failed unexpectedly")
+	}
 }
 
 func generateTLSConfig() (*tls.Config, error) {
@@ -1953,7 +2131,7 @@ func setupHTTP3Server(t *testing.T) (*http3.Server, string) {
 	server := &http3.Server{
 		Addr:      addr,
 		TLSConfig: tlsConfig,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),
 	}

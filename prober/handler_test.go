@@ -47,7 +47,7 @@ var c = &config.Config{
 }
 
 func TestPrometheusTimeoutHTTP(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 	}))
 	defer ts.Close()
@@ -68,10 +68,14 @@ func TestPrometheusTimeoutHTTP(t *testing.T) {
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
 	}
+
+	if !strings.Contains(rr.Body.String(), "probe_timeout_seconds 0.5") {
+		t.Errorf("probe failed, response body: %v", rr.Body.String())
+	}
 }
 
 func TestPrometheusConfigSecretsHidden(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		time.Sleep(2 * time.Second)
 	}))
 	defer ts.Close()
@@ -108,7 +112,7 @@ func TestDebugOutputSecretsHidden(t *testing.T) {
 }
 
 func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
-	var tests = map[string]struct {
+	tests := map[string]struct {
 		level         string
 		debugCheck    string
 		infoCheck     string
@@ -154,7 +158,7 @@ func TestDebugOutputScrapeLoggerLevels(t *testing.T) {
 }
 
 func TestTimeoutIsSetCorrectly(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		inModuleTimeout     time.Duration
 		inPrometheusTimeout string
 		inOffset            float64
@@ -302,5 +306,91 @@ func TestTCPHostnameParam(t *testing.T) {
 	if !strings.Contains(rr.Body.String(), "server_name: "+hostname) {
 		t.Errorf("probe failed, response body: %v", rr.Body.String())
 	}
+}
 
+func TestURLDecoding(t *testing.T) {
+	c := &config.Config{
+		Modules: map[string]config.Module{
+			"http_2xx": {
+				Prober:  "http",
+				Timeout: 10 * time.Second,
+				HTTP: config.HTTPProbe{
+					IPProtocolFallback: true,
+				},
+			},
+		},
+	}
+
+	// Create a test server that echoes back request details
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	tsHost, tsPort, _ := net.SplitHostPort(strings.TrimPrefix(ts.URL, "http://"))
+
+	tests := []struct {
+		name          string
+		targetParam   string
+		shouldSucceed bool
+	}{
+		{
+			// Normal target without any encoding
+			name:          "normal_target",
+			targetParam:   ts.URL,
+			shouldSucceed: true,
+		},
+		{
+			// Double-encoded colon in port: %253A -> %3A -> :
+			// This happens when clients like Prometheus/Alloy encode an already-encoded URL
+			// e.g., http://127.0.0.1%253A8080 -> http://127.0.0.1:8080
+			name:          "double_encoded_colon_in_port",
+			targetParam:   fmt.Sprintf("http://%s%%253A%s", tsHost, tsPort),
+			shouldSucceed: true,
+		},
+		{
+			// Encoded colon in path: %3A should be decoded to :
+			// e.g., http://example.com/api/v1%3Alatest -> http://example.com/api/v1:latest
+			name:          "encoded_colon_in_path",
+			targetParam:   fmt.Sprintf("http://%s:%s/api/v1%%3Alatest", tsHost, tsPort),
+			shouldSucceed: true,
+		},
+		{
+			// Fully encoded URL (scheme, host, port, path all encoded)
+			// http%3A%2F%2Fhost%3Aport%2Fpath -> http://host:port/path
+			name:          "fully_encoded_url",
+			targetParam:   fmt.Sprintf("http%%3A%%2F%%2F%s%%3A%s%%2Fpath", tsHost, tsPort),
+			shouldSucceed: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			requrl := fmt.Sprintf("?debug=true&target=%s&module=http_2xx", tc.targetParam)
+			req, err := http.NewRequest("GET", requrl, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Handler(w, r, c, promslog.NewNopLogger(), &ResultHistory{}, 0.5, nil, nil, &promslog.Config{})
+			})
+
+			handler.ServeHTTP(rr, req)
+
+			if tc.shouldSucceed {
+				if status := rr.Code; status != http.StatusOK {
+					t.Errorf("probe request handler returned wrong status code: %v, want %v", status, http.StatusOK)
+				}
+				if !strings.Contains(rr.Body.String(), "probe_success 1") {
+					t.Errorf("probe should have succeeded but failed, response body: %v", rr.Body.String())
+				}
+			} else {
+				if strings.Contains(rr.Body.String(), "probe_success 1") {
+					t.Errorf("probe should have failed but succeeded, response body: %v", rr.Body.String())
+				}
+			}
+		})
+	}
 }

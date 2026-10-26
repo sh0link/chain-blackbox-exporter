@@ -126,6 +126,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 			Certificates: []tls.Certificate{testcert},
 			MinVersion:   tls.VersionTLS12,
 			MaxVersion:   tls.VersionTLS12,
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		}
 		tlsConn := tls.Server(conn, tlsConfig)
 		defer tlsConn.Close()
@@ -188,6 +189,9 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		"probe_tls_version_info": {
 			"version": "TLS 1.2",
 		},
+		"probe_tls_cipher_info": {
+			"cipher": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
 
@@ -196,6 +200,7 @@ func TestTCPConnectionWithTLS(t *testing.T) {
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
 		"probe_ssl_last_chain_info":      1,
 		"probe_tls_version_info":         1,
+		"probe_tls_cipher_info":          1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
 }
@@ -406,6 +411,9 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 		tlsConfig := &tls.Config{
 			ServerName:   "localhost",
 			Certificates: []tls.Certificate{testcert},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
+			CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256},
 		}
 		tlsConn := tls.Server(conn, tlsConfig)
 		if err := tlsConn.Handshake(); err != nil {
@@ -436,8 +444,147 @@ func TestTCPConnectionQueryResponseStartTLS(t *testing.T) {
 	}
 	expectedResults := map[string]float64{
 		"probe_ssl_earliest_cert_expiry": float64(certExpiry.Unix()),
+		"probe_tls_cipher_info":          1,
 	}
 	checkRegistryResults(expectedResults, mfs, t)
+
+	expectedLabels := map[string]map[string]string{
+		"probe_tls_cipher_info": {
+			"cipher": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+		},
+	}
+	checkRegistryLabels(expectedLabels, mfs, t)
+}
+
+func TestTCPConnectionWithTLSAndCRL(t *testing.T) {
+	if os.Getenv("CI") == "true" {
+		t.Skip("skipping; CI is failing on ipv6 dns requests")
+	}
+
+	ca, caKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test CA", Serial: 1, IsCA: true}, nil, nil)
+	crlServer := newCRLServer(t, createCRL(t, ca, caKey, time.Now().Add(-1*time.Hour), time.Now().Add(24*time.Hour)))
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 1000, CRLURL: crlServer.URL}, ca, caKey)
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ch := make(chan struct{})
+	logger := promslog.NewNopLogger()
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		tlsConn := tls.Server(conn, &tls.Config{
+			Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   tls.VersionTLS12,
+		})
+		defer tlsConn.Close()
+		if err := tlsConn.Handshake(); err != nil {
+			logger.Error("Error TLS Handshake (server) failed", "err", err)
+		} else {
+			fmt.Fprintf(tlsConn, "Hello World!\n")
+		}
+		ch <- struct{}{}
+	}()
+
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocol:         "ip4",
+			IPProtocolFallback: true,
+			TLS:                true,
+			TLSConfig:          pconfig.TLSConfig{InsecureSkipVerify: true},
+			CheckRevoked:       true,
+		},
+	}
+
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, logger, nil) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"}); !ok || val != 1 {
+		t.Errorf("Expected probe_ssl_crl_available=1, got %v (found=%v)", val, ok)
+	}
+}
+
+func TestTCPConnectionQueryResponseStartTLSAndCRL(t *testing.T) {
+	ca, caKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test CA", Serial: 1, IsCA: true}, nil, nil)
+	crlServer := newCRLServer(t, createCRL(t, ca, caKey, time.Now().Add(-1*time.Hour), time.Now().Add(24*time.Hour)))
+	leaf, leafKey := generateCRLTestCert(t, crlCertOptions{CommonName: "Test Leaf", Serial: 1100, CRLURL: crlServer.URL}, ca, caKey)
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("Error listening on socket: %s", err)
+	}
+	defer ln.Close()
+
+	testCTX, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	module := config.Module{
+		TCP: config.TCPProbe{
+			IPProtocolFallback: true,
+			QueryResponse: []config.QueryResponse{
+				{Expect: config.MustNewRegexp("^220.*ESMTP.*$")},
+				{Send: "STARTTLS"},
+				{Expect: config.MustNewRegexp("^220")},
+				{StartTLS: true},
+			},
+			TLSConfig:    pconfig.TLSConfig{InsecureSkipVerify: true},
+			CheckRevoked: true,
+		},
+	}
+
+	ch := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		fmt.Fprintf(conn, "220 ESMTP StartTLS pseudo-server\n")
+		if _, e := fmt.Fscanf(conn, "STARTTLS\n"); e != nil {
+			panic("Error in dialog. No STARTTLS received.")
+		}
+		fmt.Fprintf(conn, "220 2.0.0 Ready to start TLS\n")
+
+		tlsConn := tls.Server(conn, &tls.Config{
+			Certificates: []tls.Certificate{serverTLSCert(leafKey, leaf, ca)},
+		})
+		defer tlsConn.Close()
+		if err := tlsConn.Handshake(); err != nil {
+			panic(fmt.Sprintf("TLS Handshake (server) failed: %s\n", err))
+		}
+		ch <- struct{}{}
+	}()
+
+	registry := prometheus.NewRegistry()
+	if !ProbeTCP(testCTX, ln.Addr().String(), module, registry, promslog.NewNopLogger(), nil) {
+		t.Fatalf("TCP module failed, expected success.")
+	}
+	<-ch
+
+	mfs, err := registry.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val, ok := getMetricWithLabels(mfs, "probe_ssl_crl_available", map[string]string{"subject": "CN=Test Leaf,O=Example Org"}); !ok || val != 1 {
+		t.Errorf("Expected probe_ssl_crl_available=1 after StartTLS, got %v (found=%v)", val, ok)
+	}
 }
 
 func TestTCPConnectionQueryResponseIRC(t *testing.T) {
@@ -577,7 +724,6 @@ func TestTCPConnectionQueryResponseMatching(t *testing.T) {
 		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
-
 }
 
 func TestTCPConnectionQueryResponseByteMode(t *testing.T) {
@@ -821,5 +967,4 @@ func TestProbeExpectInfo(t *testing.T) {
 		},
 	}
 	checkRegistryLabels(expectedLabels, mfs, t)
-
 }

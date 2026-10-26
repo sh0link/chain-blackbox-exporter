@@ -1,5 +1,5 @@
 # Multi-stage: build in container. Used by make docker and goreleaser (buildx multi-arch).
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 RUN apk add --no-cache ca-certificates
 COPY go.mod go.sum ./

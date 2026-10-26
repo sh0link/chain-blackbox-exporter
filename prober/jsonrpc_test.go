@@ -66,11 +66,11 @@ func TestToFloat64(t *testing.T) {
 
 func TestJmesPathValue(t *testing.T) {
 	tests := []struct {
-		name            string
-		result          interface{}
-		resultJMESPath  string
-		want            float64
-		wantErr         bool
+		name           string
+		result         interface{}
+		resultJMESPath string
+		want           float64
+		wantErr        bool
 	}{
 		{"whole result number", float64(100), "", 100, false},
 		{"whole result with @", float64(200), "@", 200, false},
@@ -385,4 +385,3 @@ func TestProbeJsonrpc_MultipleCalls(t *testing.T) {
 		t.Errorf("values = %v, want 100 and 200", values)
 	}
 }
-

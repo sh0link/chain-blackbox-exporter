@@ -45,6 +45,10 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  "error parsing config file: at most one of bearer_token & bearer_token_file must be configured",
 		},
 		{
+			input: "testdata/invalid-prober.yml",
+			want:  "error parsing config file: prober 'invalid' is not valid",
+		},
+		{
 			input: "testdata/invalid-dns-module.yml",
 			want:  "error parsing config file: query name must be set for DNS module",
 		},
@@ -117,8 +121,36 @@ func TestLoadBadConfigs(t *testing.T) {
 			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
 		},
 		{
+			input: "testdata/invalid-websocket-query-response-regexp.yml",
+			want:  `error parsing config file: "Could not compile regular expression" regexp=":["`,
+		},
+		{
 			input: "testdata/invalid-http-body-config.yml",
 			want:  `error parsing config file: setting body and body_file both are not allowed`,
+		},
+		{
+			input: "testdata/invalid-tcp-check-revoked-without-tls.yml",
+			want:  `error parsing config file: check_revoked cannot be used when tls is false and no query_response step uses starttls`,
+		},
+		{
+			input: "testdata/invalid-grpc-check-revoked-without-tls.yml",
+			want:  `error parsing config file: check_revoked cannot be used when tls is false`,
+		},
+		{
+			input: "testdata/invalid-unix-query-response-expect-and-expect-bytes.yml",
+			want:  `error parsing config file: expect and expect_bytes are mutually exclusive`,
+		},
+		{
+			input: "testdata/invalid-tls-ca-and-ca-file.yml",
+			want:  `error parsing config file: at most one of ca, ca_file & ca_ref must be configured`,
+		},
+		{
+			input: "testdata/invalid-http-oauth2-jwt-bearer-key-and-key-file.yml",
+			want:  `error parsing config file: at most one of oauth2 client_certificate_key, client_certificate_key_file & client_certificate_key_ref must be configured using grant-type=urn:ietf:params:oauth:grant-type:jwt-bearer`,
+		},
+		{
+			input: "testdata/invalid-http-oauth2-jwt-bearer-signature-algorithm.yml",
+			want:  `error parsing config file: valid signature algorithms are RS256, RS384 and RS512`,
 		},
 	}
 	for _, test := range tests {
@@ -264,5 +296,36 @@ func TestNewCELProgram(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestWebsocketProbeUnmarshal(t *testing.T) {
+	configStr := `
+modules:
+  websocket_test:
+    prober: websocket
+    websocket:
+      http_config:
+        tls_config:
+          insecure_skip_verify: true
+        basic_auth:
+          username: myuser
+          password: mypassword
+`
+	sc := NewSafeConfig(prometheus.NewRegistry())
+	if err := yaml.Unmarshal([]byte(configStr), &sc.C); err != nil {
+		t.Fatalf("Error unmarshalling config: %v", err)
+	}
+
+	module, ok := sc.C.Modules["websocket_test"]
+	if !ok {
+		t.Fatal("Module 'websocket_test' not found")
+	}
+
+	if !module.Websocket.HTTPClientConfig.TLSConfig.InsecureSkipVerify {
+		t.Error("Expected InsecureSkipVerify to be true")
+	}
+	if module.Websocket.HTTPClientConfig.BasicAuth.Username != "myuser" {
+		t.Errorf("Expected username 'myuser', got '%s'", module.Websocket.HTTPClientConfig.BasicAuth.Username)
 	}
 }
